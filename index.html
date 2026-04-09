@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Fretboard Explorer</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+:root {
+  --bg: #0a0a0f; --surface: #13131a; --surface-hover: #1a1a24;
+  --border: #2a2a3a; --text: #e0e0e8; --text-muted: #6a6a7a; --text-dim: #4a4a5a;
+  --accent: #5a7aff; --accent-glow: rgba(90,122,255,0.15);
+  --triad-fill: #5a7aff; --triad-stroke: #8aa0ff; --triad-text: #fff;
+  --pattern-note: #cc8800; --pattern-text: #fff;
+  --fret-color: #3a3a4a; --string-color: #5a5a6a; --dot-muted: #4a4a5a;
+  --tag-bg: #1a1a28; --tag-border: #2a2a3a;
+  --selected-bg: rgba(90,122,255,0.12); --selected-border: #5a7aff;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; padding: 20px 16px; }
+.controls { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.control-group { display: flex; flex-direction: column; gap: 4px; }
+.control-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); font-weight: 500; }
+.control-options { display: flex; gap: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 2px; }
+.control-btn {
+  padding: 6px 10px; border: none; background: transparent; color: var(--text-muted);
+  font-family: inherit; font-size: 11px; font-weight: 500; cursor: pointer;
+  border-radius: 4px; transition: all 0.15s; white-space: nowrap;
+}
+.control-btn:hover { color: var(--text); background: var(--surface-hover); }
+.control-btn.active { color: var(--accent); background: var(--accent-glow); }
+.main-fretboard { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 12px 8px; margin-bottom: 24px; }
+.main-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.chord-name { color: var(--accent); }
+.inv-tag { font-size: 9px; padding: 2px 6px; background: var(--tag-bg); border: 1px solid var(--tag-border); border-radius: 3px; color: var(--text-muted); font-weight: 400; }
+.patterns-header { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); margin-bottom: 12px; font-weight: 500; }
+.patterns-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; }
+.pattern-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px; cursor: pointer; transition: all 0.15s; }
+.pattern-card:hover { border-color: var(--text-dim); background: var(--surface-hover); }
+.pattern-card.selected { border-color: var(--selected-border); background: var(--selected-bg); }
+.pattern-name { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.pattern-desc { font-size: 9px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+.pattern-notes-list { font-size: 9px; color: var(--text-dim); margin-top: 4px; }
+.print-btn {
+  padding: 6px 14px; border: 1px solid var(--border); background: var(--surface);
+  color: var(--text-muted); font-family: inherit; font-size: 11px; font-weight: 500;
+  cursor: pointer; border-radius: 4px; transition: all 0.15s;
+}
+.print-btn:hover { color: var(--text); background: var(--surface-hover); border-color: var(--accent); }
+svg { width: 100%; height: auto; display: block; }
+
+@media print {
+  :root {
+    --bg: #fff; --surface: #fff; --surface-hover: #fff; --border: #ccc;
+    --text: #111; --text-muted: #555; --text-dim: #888;
+    --accent: #2255cc; --accent-glow: transparent;
+    --triad-fill: #2255cc; --triad-stroke: #4477ee; --triad-text: #fff;
+    --pattern-note: #cc8800; --pattern-text: #fff;
+    --fret-color: #bbb; --string-color: #999; --dot-muted: #ccc;
+    --tag-bg: #f0f0f0; --tag-border: #ccc;
+    --selected-bg: #eef2ff; --selected-border: #2255cc;
+  }
+  body { padding: 12px; }
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  .main-fretboard { border: 1px solid #ccc; break-inside: avoid; margin-bottom: 12px; }
+  .patterns-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .pattern-card { border: 1px solid #ccc; break-inside: avoid; padding: 6px; }
+  .pattern-card.selected { border: 2px solid #2255cc; }
+}
+@media not print { .print-only { display: none; } }
+</style>
+</head>
+<body>
+
+<div id="print-header" class="print-only" style="margin-bottom:12px"></div>
+<div id="controls" class="controls no-print"></div>
+<div id="main-board"></div>
+<div class="patterns-header">Jump to pattern — triad notes highlighted in blue</div>
+<div id="patterns" class="patterns-grid"></div>
+
+<script src="triad-explorer.js"></script>
+</body>
+</html>
