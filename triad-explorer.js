@@ -105,25 +105,29 @@ function generatePatterns(root, quality) {
 }
 
 // ── Fretboard rendering ─────────────────────────────────────────────
-function computeFretRange(triadPositions, padding) {
-  padding = padding || 4;
+function computeFretRange(triadPositions, totalFrets) {
+  totalFrets = totalFrets || 11;
   const frets = triadPositions.map(p => p.fret);
-  return [
-    Math.max(-1, Math.min(...frets) - padding),
-    Math.min(NUM_FRETS, Math.max(...frets) + padding)
-  ];
+  const center = (Math.min(...frets) + Math.max(...frets)) / 2;
+  const half = totalFrets / 2;
+  let start = Math.round(center - half);
+  let end = start + totalFrets;
+  // Clamp to valid range
+  if (start < -1) { start = -1; end = start + totalFrets; }
+  if (end > NUM_FRETS) { end = NUM_FRETS; start = end - totalFrets; }
+  return [start, end];
 }
 
 function renderFretboardSVG(triadPositions, patternNotes, fretRange, compact) {
   const [startFret, endFret] = fretRange;
   const numFrets = endFret - startFret;
-  const ss = compact ? 18 : 24;   // string spacing
-  const fs = compact ? 40 : 48;   // fret spacing
-  const tp = compact ? 20 : 28;   // top padding
-  const lp = compact ? 12 : 16;   // left padding
+  const ss = compact ? 20 : 20;   // string spacing
+  const fs = compact ? 42 : 40;   // fret spacing
+  const tp = compact ? 22 : 24;   // top padding
+  const lp = compact ? 14 : 14;   // left padding
   const w = lp + numFrets * fs + 20;
   const h = tp + 5 * ss + 20;
-  const dotRadius = compact ? 8 : 10;
+  const dotRadius = compact ? 9 : 9;
   const fretDots = [3, 5, 7, 9, 12, 15];
 
   let svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">`;
@@ -168,8 +172,8 @@ function renderFretboardSVG(triadPositions, patternNotes, fretRange, compact) {
   });
 
   const patternSet = patternNotes ? new Set(patternNotes) : null;
-  const offset = compact ? 6 : 8;
-  const smallR = compact ? 6 : 7.5;
+  const offset = compact ? 7 : 7;
+  const smallR = compact ? 7 : 7;
 
   // Pattern + overlap notes
   if (patternSet) {
@@ -275,7 +279,7 @@ function render() {
     return;
   }
 
-  const fretRange = computeFretRange(triadPositions, 4);
+  const fretRange = computeFretRange(triadPositions, 11);
   const activePattern = selectedPattern !== null ? patterns[selectedPattern] : null;
   const activeNotes = activePattern ? activePattern.notes : null;
 
