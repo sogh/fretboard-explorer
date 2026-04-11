@@ -9,7 +9,7 @@ Fretboard Explorer is an interactive guitar fretboard visualization tool for exp
 ```
 /
 ├── index.html           # Entry point — HTML structure + embedded CSS (dark/light/print themes)
-├── triad-explorer.js    # All application logic — music theory, SVG rendering, UI state (~340 lines)
+├── triad-explorer.js    # All application logic — music theory, SVG rendering, UI state (~375 lines)
 └── LICENSE              # MIT License
 ```
 
@@ -34,11 +34,11 @@ Open `index.html` directly in a browser. No server or build step required. For l
 
 The file is organized into four clearly-commented sections:
 
-1. **Music theory constants** (lines 1-10) — `NOTES`, `STANDARD_TUNING`, `TRIAD_INTERVALS`, helper functions `noteIndex()` / `noteName()`
-2. **Triad logic** (lines 12-54) — `getTriadNotes()`, `getTriadDegreeLabels()`, `findTriadOnStrings()` — compute triad voicings on the fretboard
-3. **Scale & pattern generation** (lines 56-105) — `chordNotes()`, pentatonic generators, `MODES` array, `generatePatterns()` — diatonic chords, pentatonic scales, and all 7 modes
-4. **Fretboard rendering** (lines 107-220) — `computeFretRange()`, `renderFretboardSVG()` — SVG generation for fretboard diagrams
-5. **UI state & rendering** (lines 222-340) — `state` object, `render()`, `attachEvents()`, bootstrap call
+1. **Music theory constants** (lines 1-14) — `NOTES`, `STANDARD_TUNING`, `TRIAD_INTERVALS` (major, minor, dim, aug, sus2, sus4), helper functions `noteIndex()` / `noteName()`
+2. **Triad logic** (lines 16-63) — `getTriadNotes()`, `getTriadDegreeLabels()`, `findTriadOnStrings()` — compute triad voicings on the fretboard
+3. **Scale & pattern generation** (lines 65-116) — `chordNotes()`, pentatonic generators, `MODES` array, `generatePatterns()` — diatonic chords (including vii°), pentatonic scales, and all 7 modes; each pattern has a `category` field ("diatonic" or "scales")
+4. **Fretboard rendering** (lines 118-231) — `computeFretRange()`, `renderFretboardSVG()` — SVG generation for fretboard diagrams
+5. **UI state & rendering** (lines 233-375) — `state` object, `PATTERN_TABS`, `render()`, `attachEvents()`, bootstrap call
 
 ### State Management
 
@@ -47,9 +47,10 @@ A single global mutable `state` object drives the UI:
 ```js
 const state = {
   root: "G",              // Current root note
-  quality: "major",       // "major" or "minor"
+  quality: "major",       // "major", "minor", "dim", "aug", "sus2", or "sus4"
   inversion: 1,           // 0, 1, or 2
   stringGroup: 2,         // 0-3 (which 3 consecutive strings)
+  patternCategory: "all", // "all", "diatonic", or "scales"
   selectedPattern: null   // Index into patterns array, or null
 };
 ```
@@ -63,8 +64,9 @@ State is mutated directly (e.g., `state.root = val`) followed by calling `render
 2. Generates related patterns via `generatePatterns()`
 3. Builds control button rows as HTML strings
 4. Renders the main fretboard SVG with optional pattern overlay
-5. Renders pattern cards (each with its own compact fretboard SVG)
-6. Re-attaches all event listeners via `attachEvents()`
+5. Renders pattern category tabs (All / Diatonic / Scales)
+6. Renders pattern cards filtered by active category (each with its own compact fretboard SVG)
+7. Re-attaches all event listeners via `attachEvents()`
 
 ### SVG Fretboard Rendering
 
@@ -81,10 +83,11 @@ The function accepts a `compact` flag for smaller pattern-card renderings.
 ### DOM Structure (index.html)
 
 ```
-#print-header  — visible only in print mode
-#controls      — button rows for root/quality/inversion/strings + print button
-#main-board    — main fretboard visualization
-#patterns      — grid of pattern cards (diatonic chords, scales, modes)
+#print-header    — visible only in print mode
+#controls        — button rows for root/quality/inversion/strings + print button
+#main-board      — main fretboard visualization
+#pattern-header  — category filter tabs (All / Diatonic / Scales)
+#patterns        — grid of pattern cards (diatonic chords, scales, modes)
 ```
 
 ### Theming
@@ -99,7 +102,7 @@ CSS custom properties in `:root` control the dark theme. A `@media print` block 
 
 - **Functions**: camelCase — `getTriadNotes()`, `renderFretboardSVG()`, `computeFretRange()`
 - **Constants**: SCREAMING_SNAKE_CASE — `NOTES`, `STANDARD_TUNING`, `TRIAD_INTERVALS`, `MODES`
-- **UI constants**: SCREAMING_SNAKE_CASE — `ROOTS`, `QUALITIES`, `INVERSIONS`, `STRING_GROUPS`
+- **UI constants**: SCREAMING_SNAKE_CASE — `ROOTS`, `QUALITIES`, `INVERSIONS`, `STRING_GROUPS`, `PATTERN_TABS`
 - **Loop variables**: Short abbreviations — `si` (string index), `fi` (fret index), `ri` (root index)
 - **Function prefixes**: `get*` (compute/return data), `find*` (search with possible null), `compute*` (calculate derived values), `render*` (produce HTML/SVG), `attach*` (wire up events)
 
@@ -107,11 +110,12 @@ CSS custom properties in `:root` control the dark theme. A `@media print` block 
 
 - **Notes**: Chromatic scale as array index 0-11: `["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]`
 - **Tuning**: Standard guitar tuning stored as note indices: `[4, 11, 7, 2, 9, 4]` (high E to low E)
-- **Triads**: Root + 3rd + 5th, with major `[0,4,7]` and minor `[0,3,7]` intervals
+- **Triads**: Root + 3rd + 5th — six qualities: major `[0,4,7]`, minor `[0,3,7]`, dim `[0,3,6]`, aug `[0,4,8]`, sus2 `[0,2,7]`, sus4 `[0,5,7]`
+- **Degree labels**: Quality-specific — e.g. minor shows ♭3, dim shows ♭3/♭5, sus2 shows 2, sus4 shows 4
 - **Inversions**: Implemented as array rotation of the triad degree order
 - **String groups**: 4 groups of 3 consecutive strings: E-B-G, B-G-D, G-D-A, D-A-E
 - **Voicing selection**: Finds all fret combinations for a triad on 3 strings, picks smallest span (max 5 frets)
-- **Patterns**: Diatonic chords (ii, iii, IV, V, vi), pentatonic scales, and all 7 modes generated relative to the selected root
+- **Patterns**: Diatonic chords (ii, iii, IV, V, vi, vii°), pentatonic scales, and all 7 modes generated relative to the selected root; each pattern tagged with a `category` for tab filtering
 
 ## Development Guidelines
 

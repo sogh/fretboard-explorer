@@ -33,7 +33,16 @@ body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono',
 .main-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .chord-name { color: var(--accent); }
 .inv-tag { font-size: 9px; padding: 2px 6px; background: var(--tag-bg); border: 1px solid var(--tag-border); border-radius: 3px; color: var(--text-muted); font-weight: 400; }
-.patterns-header { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); margin-bottom: 12px; font-weight: 500; }
+.pattern-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.patterns-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); font-weight: 500; }
+.pattern-tabs { display: flex; gap: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 2px; }
+.pattern-tab {
+  padding: 5px 12px; border: none; background: transparent; color: var(--text-muted);
+  font-family: inherit; font-size: 10px; font-weight: 500; cursor: pointer;
+  border-radius: 4px; transition: all 0.15s; text-transform: uppercase; letter-spacing: 1px;
+}
+.pattern-tab:hover { color: var(--text); background: var(--surface-hover); }
+.pattern-tab.active { color: var(--accent); background: var(--accent-glow); }
 .patterns-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; }
 .pattern-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px; cursor: pointer; transition: all 0.15s; }
 .pattern-card:hover { border-color: var(--text-dim); background: var(--surface-hover); }
@@ -67,6 +76,7 @@ svg { width: 100%; height: auto; display: block; }
   .patterns-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
   .pattern-card { border: 1px solid #ccc; break-inside: avoid; padding: 6px; }
   .pattern-card.selected { border: 2px solid #2255cc; }
+  .pattern-tabs { display: none; }
 }
 @media not print { .print-only { display: none; } }
 </style>
@@ -76,7 +86,7 @@ svg { width: 100%; height: auto; display: block; }
 <div id="print-header" class="print-only" style="margin-bottom:12px"></div>
 <div id="controls" class="controls no-print"></div>
 <div id="main-board"></div>
-<div class="patterns-header">Jump to pattern — triad notes highlighted in blue</div>
+<div id="pattern-header" class="pattern-header"></div>
 <div id="patterns" class="patterns-grid"></div>
 
 <script src="triad-explorer.js"></script>

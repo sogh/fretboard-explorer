@@ -7,7 +7,11 @@ const NUM_FRETS = 15;
 const noteIndex = n => NOTES.indexOf(n);
 const noteName = i => NOTES[((i % 12) + 12) % 12];
 
-const TRIAD_INTERVALS = { major: [0, 4, 7], minor: [0, 3, 7] };
+const TRIAD_INTERVALS = {
+  major: [0, 4, 7], minor: [0, 3, 7],
+  dim: [0, 3, 6], aug: [0, 4, 8],
+  sus2: [0, 2, 7], sus4: [0, 5, 7],
+};
 
 // ── Triad logic ─────────────────────────────────────────────────────
 function getTriadNotes(root, quality, inversion) {
@@ -17,15 +21,20 @@ function getTriadNotes(root, quality, inversion) {
   return degrees;
 }
 
-function getTriadDegreeLabels(inversion) {
-  const labels = ["1", "3", "5"];
+function getTriadDegreeLabels(quality, inversion) {
+  const base = {
+    major: ["1","3","5"], minor: ["1","♭3","5"],
+    dim: ["1","♭3","♭5"], aug: ["1","3","♯5"],
+    sus2: ["1","2","5"], sus4: ["1","4","5"],
+  };
+  const labels = [...(base[quality] || base.major)];
   for (let i = 0; i < inversion; i++) labels.push(labels.shift());
   return labels;
 }
 
 function findTriadOnStrings(root, quality, inversion, startStringIdx) {
   const triadNotes = getTriadNotes(root, quality, inversion);
-  const labels = getTriadDegreeLabels(inversion);
+  const labels = getTriadDegreeLabels(quality, inversion);
   const candidates = [];
 
   for (let i = 0; i < 3; i++) {
@@ -74,31 +83,33 @@ const MODES = [
 function generatePatterns(root, quality) {
   const ri = noteIndex(root);
   const ii = (ri + 2) % 12, iii = (ri + 4) % 12;
-  const iv = (ri + 5) % 12, v = (ri + 7) % 12, vi = (ri + 9) % 12;
+  const iv = (ri + 5) % 12, v = (ri + 7) % 12;
+  const vi = (ri + 9) % 12, vii = (ri + 11) % 12;
   const patterns = [];
 
   // Diatonic chords
-  patterns.push({ name: `ii — ${noteName(ii)} minor`,   notes: chordNotes(ii, "minor"),  desc: "The two chord" });
-  patterns.push({ name: `iii — ${noteName(iii)} minor`,  notes: chordNotes(iii, "minor"), desc: "The three chord" });
-  patterns.push({ name: `IV — ${noteName(iv)} major`,    notes: chordNotes(iv, "major"),  desc: "The four chord" });
-  patterns.push({ name: `V — ${noteName(v)} major`,      notes: chordNotes(v, "major"),   desc: "The five chord" });
-  patterns.push({ name: `vi — ${noteName(vi)} minor`,    notes: chordNotes(vi, "minor"),  desc: "Relative minor" });
+  patterns.push({ name: `ii — ${noteName(ii)} minor`,    notes: chordNotes(ii, "minor"),   desc: "The two chord",   category: "diatonic" });
+  patterns.push({ name: `iii — ${noteName(iii)} minor`,   notes: chordNotes(iii, "minor"),  desc: "The three chord", category: "diatonic" });
+  patterns.push({ name: `IV — ${noteName(iv)} major`,     notes: chordNotes(iv, "major"),   desc: "The four chord",  category: "diatonic" });
+  patterns.push({ name: `V — ${noteName(v)} major`,       notes: chordNotes(v, "major"),    desc: "The five chord",  category: "diatonic" });
+  patterns.push({ name: `vi — ${noteName(vi)} minor`,     notes: chordNotes(vi, "minor"),   desc: "Relative minor",  category: "diatonic" });
+  patterns.push({ name: `vii° — ${noteName(vii)} dim`,    notes: chordNotes(vii, "dim"),    desc: "The seven chord", category: "diatonic" });
 
   if (quality === "minor") {
     const rel = (ri + 3) % 12;
-    patterns.push({ name: `III — ${noteName(rel)} major`, notes: chordNotes(rel, "major"), desc: "Relative major" });
+    patterns.push({ name: `III — ${noteName(rel)} major`, notes: chordNotes(rel, "major"), desc: "Relative major", category: "diatonic" });
   }
 
   // Pentatonic scales
-  patterns.push({ name: `${root} major pentatonic`,          notes: majorPentatonic(ri), desc: "5-note major scale" });
-  patterns.push({ name: `${noteName(vi)} minor pentatonic`,  notes: minorPentatonic(vi), desc: "Relative minor pentatonic" });
+  patterns.push({ name: `${root} major pentatonic`,          notes: majorPentatonic(ri), desc: "5-note major scale",        category: "scales" });
+  patterns.push({ name: `${noteName(vi)} minor pentatonic`,  notes: minorPentatonic(vi), desc: "Relative minor pentatonic", category: "scales" });
   if (quality === "minor") {
-    patterns.push({ name: `${root} minor pentatonic`, notes: minorPentatonic(ri), desc: "5-note minor scale" });
+    patterns.push({ name: `${root} minor pentatonic`, notes: minorPentatonic(ri), desc: "5-note minor scale", category: "scales" });
   }
 
   // All 7 modes
   for (const mode of MODES) {
-    patterns.push({ name: `${root} ${mode.name}`, notes: mode.steps.map(s => (ri + s) % 12), desc: mode.desc });
+    patterns.push({ name: `${root} ${mode.name}`, notes: mode.steps.map(s => (ri + s) % 12), desc: mode.desc, category: "scales" });
   }
 
   return patterns;
@@ -221,7 +232,7 @@ function renderFretboardSVG(triadPositions, patternNotes, fretRange, compact) {
 
 // ── UI state & rendering ────────────────────────────────────────────
 const ROOTS = NOTES;
-const QUALITIES = ["major", "minor"];
+const QUALITIES = ["major", "minor", "dim", "aug", "sus2", "sus4"];
 const INVERSIONS = ["Root position", "1st inversion", "2nd inversion"];
 const STRING_GROUPS = [
   { label: "E-B-G", idx: 0 },
@@ -230,11 +241,18 @@ const STRING_GROUPS = [
   { label: "D-A-E", idx: 3 },
 ];
 
+const PATTERN_TABS = [
+  { key: "all", label: "All" },
+  { key: "diatonic", label: "Diatonic" },
+  { key: "scales", label: "Scales" },
+];
+
 const state = {
   root: "G",
   quality: "major",
   inversion: 1,
   stringGroup: 2,
+  patternCategory: "all",
   selectedPattern: null
 };
 
@@ -274,6 +292,7 @@ function render() {
   if (!triadPositions) {
     document.getElementById("main-board").innerHTML =
       `<div style="padding:40px;text-align:center;color:var(--text-muted)">That voicing doesn't fit on the fretboard. Try a different combination.</div>`;
+    document.getElementById("pattern-header").innerHTML = "";
     document.getElementById("patterns").innerHTML = "";
     attachEvents();
     return;
@@ -293,9 +312,18 @@ function render() {
   document.getElementById("main-board").innerHTML =
     `<div class="main-fretboard"><div class="main-title">${mainTitle}</div>${renderFretboardSVG(triadPositions, activeNotes, fretRange, false)}</div>`;
 
-  // Pattern cards
+  // Pattern header with category tabs
+  let tabsHtml = `<span class="patterns-label">Related patterns</span><div class="pattern-tabs">`;
+  for (const tab of PATTERN_TABS) {
+    tabsHtml += `<button class="pattern-tab ${state.patternCategory === tab.key ? "active" : ""}" data-category="${tab.key}">${tab.label}</button>`;
+  }
+  tabsHtml += `</div>`;
+  document.getElementById("pattern-header").innerHTML = tabsHtml;
+
+  // Pattern cards (filtered by category)
   let cards = "";
   patterns.forEach((p, i) => {
+    if (state.patternCategory !== "all" && p.category !== state.patternCategory) return;
     const sel = selectedPattern === i ? "selected" : "";
     cards += `<div class="pattern-card ${sel}" data-pattern="${i}">
       <div class="pattern-name">${p.name}</div>
@@ -319,6 +347,13 @@ function attachEvents() {
       else if (key === "inversion") state.inversion = parseInt(val);
       else if (key === "stringGroup") state.stringGroup = parseInt(val);
       state.selectedPattern = null;
+      render();
+    };
+  });
+
+  document.querySelectorAll(".pattern-tab").forEach(tab => {
+    tab.onclick = () => {
+      state.patternCategory = tab.dataset.category;
       render();
     };
   });
