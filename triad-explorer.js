@@ -7,16 +7,19 @@ const NUM_FRETS = 15;
 const noteIndex = n => NOTES.indexOf(n);
 const noteName = i => NOTES[((i % 12) + 12) % 12];
 
-const TRIAD_INTERVALS = {
+const CHORD_INTERVALS = {
   major: [0, 4, 7], minor: [0, 3, 7],
   dim: [0, 3, 6], aug: [0, 4, 8],
   sus2: [0, 2, 7], sus4: [0, 5, 7],
+  maj7: [0, 4, 7, 11], dom7: [0, 4, 7, 10],
+  min7: [0, 3, 7, 10], mM7: [0, 3, 7, 11],
+  dim7: [0, 3, 6, 9], m7b5: [0, 3, 6, 10],
 };
 
 // ── Triad logic ─────────────────────────────────────────────────────
 function getTriadNotes(root, quality, inversion) {
   const rootIdx = noteIndex(root);
-  const degrees = TRIAD_INTERVALS[quality].map(i => (rootIdx + i) % 12);
+  const degrees = CHORD_INTERVALS[quality].map(i => (rootIdx + i) % 12);
   for (let i = 0; i < inversion; i++) degrees.push(degrees.shift());
   return degrees;
 }
@@ -26,35 +29,47 @@ function getTriadDegreeLabels(quality, inversion) {
     major: ["1","3","5"], minor: ["1","♭3","5"],
     dim: ["1","♭3","♭5"], aug: ["1","3","♯5"],
     sus2: ["1","2","5"], sus4: ["1","4","5"],
+    maj7: ["1","3","5","7"], dom7: ["1","3","5","♭7"],
+    min7: ["1","♭3","5","♭7"], mM7: ["1","♭3","5","7"],
+    dim7: ["1","♭3","♭5","°7"], m7b5: ["1","♭3","♭5","♭7"],
   };
   const labels = [...(base[quality] || base.major)];
   for (let i = 0; i < inversion; i++) labels.push(labels.shift());
   return labels;
 }
 
-function findTriadOnStrings(root, quality, inversion, startStringIdx) {
-  const triadNotes = getTriadNotes(root, quality, inversion);
+function findVoicingOnStrings(root, quality, inversion, startStringIdx) {
+  const chordTones = getTriadNotes(root, quality, inversion);
   const labels = getTriadDegreeLabels(quality, inversion);
+  const n = chordTones.length;
   const candidates = [];
 
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < n; i++) {
     const strIdx = startStringIdx + i;
     if (strIdx >= 6) return null;
     const openNote = STANDARD_TUNING[strIdx];
-    const target = triadNotes[2 - i];
+    const target = chordTones[n - 1 - i];
     const baseFret = ((target - openNote) % 12 + 12) % 12;
     const frets = [];
     for (let f = baseFret; f <= NUM_FRETS; f += 12) frets.push(f);
-    candidates.push({ strIdx, frets, target, degree: labels[2 - i] });
+    candidates.push({ strIdx, frets, target, degree: labels[n - 1 - i] });
+  }
+
+  // Cartesian product of all fret options, then pick smallest span
+  let combos = [[]];
+  for (const c of candidates) {
+    const next = [];
+    for (const combo of combos)
+      for (const f of c.frets)
+        next.push([...combo, f]);
+    combos = next;
   }
 
   let best = null, bestSpan = 999;
-  for (const f0 of candidates[0].frets)
-    for (const f1 of candidates[1].frets)
-      for (const f2 of candidates[2].frets) {
-        const span = Math.max(f0, f1, f2) - Math.min(f0, f1, f2);
-        if (span < bestSpan) { bestSpan = span; best = [f0, f1, f2]; }
-      }
+  for (const combo of combos) {
+    const span = Math.max(...combo) - Math.min(...combo);
+    if (span < bestSpan) { bestSpan = span; best = combo; }
+  }
 
   if (!best || bestSpan > 5) return null;
   return candidates.map((c, i) => ({
@@ -64,7 +79,7 @@ function findTriadOnStrings(root, quality, inversion, startStringIdx) {
 
 // ── Scale & pattern generation ──────────────────────────────────────
 function chordNotes(root, quality) {
-  return TRIAD_INTERVALS[quality].map(i => (root + i) % 12);
+  return CHORD_INTERVALS[quality].map(i => (root + i) % 12);
 }
 
 function majorPentatonic(root) { return [0, 2, 4, 7, 9].map(s => (root + s) % 12); }
@@ -80,30 +95,44 @@ const MODES = [
   { name: "Locrian",    steps: [0,1,3,5,6,8,10], desc: "Mode 7 — diminished" },
 ];
 
-function generatePatterns(root, quality) {
+function generatePatterns(root, quality, family) {
   const ri = noteIndex(root);
   const ii = (ri + 2) % 12, iii = (ri + 4) % 12;
   const iv = (ri + 5) % 12, v = (ri + 7) % 12;
   const vi = (ri + 9) % 12, vii = (ri + 11) % 12;
   const patterns = [];
 
-  // Diatonic chords
-  patterns.push({ name: `ii — ${noteName(ii)} minor`,    notes: chordNotes(ii, "minor"),   desc: "The two chord",   category: "diatonic" });
-  patterns.push({ name: `iii — ${noteName(iii)} minor`,   notes: chordNotes(iii, "minor"),  desc: "The three chord", category: "diatonic" });
-  patterns.push({ name: `IV — ${noteName(iv)} major`,     notes: chordNotes(iv, "major"),   desc: "The four chord",  category: "diatonic" });
-  patterns.push({ name: `V — ${noteName(v)} major`,       notes: chordNotes(v, "major"),    desc: "The five chord",  category: "diatonic" });
-  patterns.push({ name: `vi — ${noteName(vi)} minor`,     notes: chordNotes(vi, "minor"),   desc: "Relative minor",  category: "diatonic" });
-  patterns.push({ name: `vii° — ${noteName(vii)} dim`,    notes: chordNotes(vii, "dim"),    desc: "The seven chord", category: "diatonic" });
-
-  if (quality === "minor") {
-    const rel = (ri + 3) % 12;
-    patterns.push({ name: `III — ${noteName(rel)} major`, notes: chordNotes(rel, "major"), desc: "Relative major", category: "diatonic" });
+  if (family === "7th") {
+    // Diatonic 7th chords
+    patterns.push({ name: `ii7 — ${noteName(ii)}m7`,          notes: chordNotes(ii, "min7"),   desc: "The two chord",   category: "diatonic" });
+    patterns.push({ name: `iii7 — ${noteName(iii)}m7`,         notes: chordNotes(iii, "min7"),  desc: "The three chord", category: "diatonic" });
+    patterns.push({ name: `IVmaj7 — ${noteName(iv)}maj7`,      notes: chordNotes(iv, "maj7"),   desc: "The four chord",  category: "diatonic" });
+    patterns.push({ name: `V7 — ${noteName(v)}7`,              notes: chordNotes(v, "dom7"),    desc: "The five chord",  category: "diatonic" });
+    patterns.push({ name: `vi7 — ${noteName(vi)}m7`,           notes: chordNotes(vi, "min7"),   desc: "Relative minor",  category: "diatonic" });
+    patterns.push({ name: `viiø7 — ${noteName(vii)}m7♭5`,      notes: chordNotes(vii, "m7b5"),  desc: "The seven chord", category: "diatonic" });
+    if (quality === "min7" || quality === "mM7") {
+      const rel = (ri + 3) % 12;
+      patterns.push({ name: `IIImaj7 — ${noteName(rel)}maj7`, notes: chordNotes(rel, "maj7"), desc: "Relative major", category: "diatonic" });
+    }
+  } else {
+    // Diatonic triads
+    patterns.push({ name: `ii — ${noteName(ii)} minor`,    notes: chordNotes(ii, "minor"),   desc: "The two chord",   category: "diatonic" });
+    patterns.push({ name: `iii — ${noteName(iii)} minor`,   notes: chordNotes(iii, "minor"),  desc: "The three chord", category: "diatonic" });
+    patterns.push({ name: `IV — ${noteName(iv)} major`,     notes: chordNotes(iv, "major"),   desc: "The four chord",  category: "diatonic" });
+    patterns.push({ name: `V — ${noteName(v)} major`,       notes: chordNotes(v, "major"),    desc: "The five chord",  category: "diatonic" });
+    patterns.push({ name: `vi — ${noteName(vi)} minor`,     notes: chordNotes(vi, "minor"),   desc: "Relative minor",  category: "diatonic" });
+    patterns.push({ name: `vii° — ${noteName(vii)} dim`,    notes: chordNotes(vii, "dim"),    desc: "The seven chord", category: "diatonic" });
+    if (quality === "minor") {
+      const rel = (ri + 3) % 12;
+      patterns.push({ name: `III — ${noteName(rel)} major`, notes: chordNotes(rel, "major"), desc: "Relative major", category: "diatonic" });
+    }
   }
 
   // Pentatonic scales
   patterns.push({ name: `${root} major pentatonic`,          notes: majorPentatonic(ri), desc: "5-note major scale",        category: "scales" });
   patterns.push({ name: `${noteName(vi)} minor pentatonic`,  notes: minorPentatonic(vi), desc: "Relative minor pentatonic", category: "scales" });
-  if (quality === "minor") {
+  const minorQualities = ["minor", "dim", "min7", "mM7", "dim7", "m7b5"];
+  if (minorQualities.includes(quality)) {
     patterns.push({ name: `${root} minor pentatonic`, notes: minorPentatonic(ri), desc: "5-note minor scale", category: "scales" });
   }
 
@@ -232,13 +261,38 @@ function renderFretboardSVG(triadPositions, patternNotes, fretRange, compact) {
 
 // ── UI state & rendering ────────────────────────────────────────────
 const ROOTS = NOTES;
-const QUALITIES = ["major", "minor", "dim", "aug", "sus2", "sus4"];
-const INVERSIONS = ["Root position", "1st inversion", "2nd inversion"];
-const STRING_GROUPS = [
+const FAMILY_OPTIONS = [
+  { key: "triad", label: "Triad" },
+  { key: "7th", label: "7th" },
+];
+const FAMILY_QUALITIES = {
+  triad: ["major", "minor", "dim", "aug", "sus2", "sus4"],
+  "7th": [
+    { key: "maj7", label: "maj7" },
+    { key: "dom7", label: "7" },
+    { key: "min7", label: "min7" },
+    { key: "mM7", label: "m(M7)" },
+    { key: "dim7", label: "dim7" },
+    { key: "m7b5", label: "m7♭5" },
+  ],
+};
+const QUALITY_DISPLAY = {};
+for (const fam of Object.values(FAMILY_QUALITIES))
+  for (const item of fam)
+    if (typeof item === "object") QUALITY_DISPLAY[item.key] = item.label;
+
+const TRIAD_INVERSIONS = ["Root position", "1st inversion", "2nd inversion"];
+const SEVENTH_INVERSIONS = ["Root position", "1st inversion", "2nd inversion", "3rd inversion"];
+const TRIAD_STRING_GROUPS = [
   { label: "E-B-G", idx: 0 },
   { label: "B-G-D", idx: 1 },
   { label: "G-D-A", idx: 2 },
   { label: "D-A-E", idx: 3 },
+];
+const SEVENTH_STRING_GROUPS = [
+  { label: "E-B-G-D", idx: 0 },
+  { label: "B-G-D-A", idx: 1 },
+  { label: "G-D-A-E", idx: 2 },
 ];
 
 const PATTERN_TABS = [
@@ -249,6 +303,7 @@ const PATTERN_TABS = [
 
 const state = {
   root: "G",
+  family: "triad",
   quality: "major",
   inversion: 1,
   stringGroup: 2,
@@ -257,39 +312,46 @@ const state = {
 };
 
 function render() {
-  const { root, quality, inversion, stringGroup, selectedPattern } = state;
-  const sg = STRING_GROUPS[stringGroup];
-  const triadPositions = findTriadOnStrings(root, quality, inversion, sg.idx);
-  const patterns = generatePatterns(root, quality);
-  const title = `${root} ${quality} — ${INVERSIONS[inversion]} — ${sg.label} strings`;
+  const { root, family, quality, inversion, stringGroup, selectedPattern } = state;
+  const is7th = family === "7th";
+  const inversions = is7th ? SEVENTH_INVERSIONS : TRIAD_INVERSIONS;
+  const stringGroups = is7th ? SEVENTH_STRING_GROUPS : TRIAD_STRING_GROUPS;
+  const qualities = FAMILY_QUALITIES[family];
+  const sg = stringGroups[stringGroup];
+  const voicing = findVoicingOnStrings(root, quality, inversion, sg.idx);
+  const patterns = generatePatterns(root, quality, family);
+  const displayQ = QUALITY_DISPLAY[quality] || quality;
+  const chordName = /^\d/.test(displayQ) ? `${root}${displayQ}` : `${root} ${displayQ}`;
+  const title = `${chordName} — ${inversions[inversion]} — ${sg.label} strings`;
 
   // Print header
-  const triadNoteNames = getTriadNotes(root, quality, inversion).map(n => noteName(n)).join(" – ");
+  const noteNames = getTriadNotes(root, quality, inversion).map(n => noteName(n)).join(" – ");
   document.getElementById("print-header").innerHTML =
     `<div style="font-size:18px;font-weight:700;color:var(--text)">${title}</div>` +
-    `<div style="font-size:11px;color:var(--text-muted);margin-top:2px">Triad notes: ${triadNoteNames} · <span style="color:var(--triad-fill)">●</span> triad · <span style="color:var(--pattern-note)">●</span> pattern</div>`;
+    `<div style="font-size:11px;color:var(--text-muted);margin-top:2px">Notes: ${noteNames} · <span style="color:var(--triad-fill)">●</span> chord · <span style="color:var(--pattern-note)">●</span> pattern</div>`;
 
   // Controls
-  function btnRow(items, current, key, useIndex) {
+  function btnRow(items, current, dataKey, useIndex) {
     return items.map((item, i) => {
-      const label = typeof item === "string" ? item : (item.label || item);
-      const val = useIndex ? i : (typeof item === "string" ? item : i);
-      const active = useIndex ? current === i : (current === val || current === i);
-      const dataVal = useIndex ? i : (typeof item === "string" ? item : i);
-      return `<button class="control-btn ${active ? "active" : ""}" data-key="${key}" data-val="${dataVal}">${label}</button>`;
+      const isObj = typeof item === "object" && item !== null;
+      const label = isObj ? item.label : item;
+      const val = useIndex ? i : (isObj ? item.key : item);
+      const active = current === val;
+      return `<button class="control-btn ${active ? "active" : ""}" data-key="${dataKey}" data-val="${val}">${label}</button>`;
     }).join("");
   }
 
   let controls = "";
   controls += `<div class="control-group"><div class="control-label">Root</div><div class="control-options">${btnRow(ROOTS, root, "root", false)}</div></div>`;
-  controls += `<div class="control-group"><div class="control-label">Quality</div><div class="control-options">${btnRow(QUALITIES, quality, "quality", false)}</div></div>`;
-  controls += `<div class="control-group"><div class="control-label">Inversion</div><div class="control-options">${btnRow(INVERSIONS, inversion, "inversion", true)}</div></div>`;
-  controls += `<div class="control-group"><div class="control-label">Strings</div><div class="control-options">${btnRow(STRING_GROUPS.map(s => s.label), stringGroup, "stringGroup", true)}</div></div>`;
+  controls += `<div class="control-group"><div class="control-label">Type</div><div class="control-options">${btnRow(FAMILY_OPTIONS, family, "family", false)}</div></div>`;
+  controls += `<div class="control-group"><div class="control-label">Quality</div><div class="control-options">${btnRow(qualities, quality, "quality", false)}</div></div>`;
+  controls += `<div class="control-group"><div class="control-label">Inversion</div><div class="control-options">${btnRow(inversions, inversion, "inversion", true)}</div></div>`;
+  controls += `<div class="control-group"><div class="control-label">Strings</div><div class="control-options">${btnRow(stringGroups.map(s => s.label), stringGroup, "stringGroup", true)}</div></div>`;
   controls += `<div class="control-group" style="justify-content:flex-end"><button class="print-btn" id="printBtn">Print this view</button></div>`;
   document.getElementById("controls").innerHTML = controls;
 
   // No valid voicing
-  if (!triadPositions) {
+  if (!voicing) {
     document.getElementById("main-board").innerHTML =
       `<div style="padding:40px;text-align:center;color:var(--text-muted)">That voicing doesn't fit on the fretboard. Try a different combination.</div>`;
     document.getElementById("pattern-header").innerHTML = "";
@@ -298,19 +360,19 @@ function render() {
     return;
   }
 
-  const fretRange = computeFretRange(triadPositions, 11);
+  const fretRange = computeFretRange(voicing, 11);
   const activePattern = selectedPattern !== null ? patterns[selectedPattern] : null;
   const activeNotes = activePattern ? activePattern.notes : null;
 
   // Main fretboard
-  let mainTitle = `<span class="chord-name">${root} ${quality}</span>`;
-  mainTitle += `<span class="inv-tag">${INVERSIONS[inversion]}</span>`;
+  let mainTitle = `<span class="chord-name">${chordName}</span>`;
+  mainTitle += `<span class="inv-tag">${inversions[inversion]}</span>`;
   mainTitle += `<span class="inv-tag">${sg.label} strings</span>`;
   if (activePattern) {
     mainTitle += `<span class="inv-tag" style="border-color:var(--pattern-note);color:var(--pattern-note)">+ ${activePattern.name}</span>`;
   }
   document.getElementById("main-board").innerHTML =
-    `<div class="main-fretboard"><div class="main-title">${mainTitle}</div>${renderFretboardSVG(triadPositions, activeNotes, fretRange, false)}</div>`;
+    `<div class="main-fretboard"><div class="main-title">${mainTitle}</div>${renderFretboardSVG(voicing, activeNotes, fretRange, false)}</div>`;
 
   // Pattern header with category tabs
   let tabsHtml = `<span class="patterns-label">Related patterns</span><div class="pattern-tabs">`;
@@ -328,7 +390,7 @@ function render() {
     cards += `<div class="pattern-card ${sel}" data-pattern="${i}">
       <div class="pattern-name">${p.name}</div>
       <div class="pattern-desc">${p.desc}</div>
-      ${renderFretboardSVG(triadPositions, p.notes, fretRange, true)}
+      ${renderFretboardSVG(voicing, p.notes, fretRange, true)}
       <div class="pattern-notes-list">${p.notes.map(n => noteName(n)).join(" · ")}</div>
     </div>`;
   });
@@ -342,7 +404,14 @@ function attachEvents() {
     btn.onclick = () => {
       const key = btn.dataset.key;
       const val = btn.dataset.val;
-      if (key === "root") state.root = val;
+      if (key === "family") {
+        state.family = val;
+        const firstQ = FAMILY_QUALITIES[val][0];
+        state.quality = typeof firstQ === "string" ? firstQ : firstQ.key;
+        state.inversion = 0;
+        state.stringGroup = 0;
+      }
+      else if (key === "root") state.root = val;
       else if (key === "quality") state.quality = val;
       else if (key === "inversion") state.inversion = parseInt(val);
       else if (key === "stringGroup") state.stringGroup = parseInt(val);
