@@ -36,9 +36,9 @@ The file is organized into five clearly-commented sections:
 
 1. **Music theory constants** (lines 1-17) — `NOTES`, `STANDARD_TUNING`, `CHORD_INTERVALS` (triads + 7th chords), helper functions `noteIndex()` / `noteName()`
 2. **Chord logic** (lines 19-78) — `getTriadNotes()`, `getTriadDegreeLabels()`, `findVoicingOnStrings()` — compute chord voicings on N consecutive strings using cartesian product span minimization
-3. **Scale & pattern generation** (lines 80-145) — `chordNotes()`, pentatonic generators, `MODES` array, `generatePatterns()` — diatonic chords (triads or 7ths based on family), pentatonic scales, and all 7 modes; each pattern has a `category` field ("diatonic" or "scales")
-4. **Fretboard rendering** (lines 147-260) — `computeFretRange()`, `renderFretboardSVG()` — SVG generation for fretboard diagrams
-5. **UI state & rendering** (lines 262-444) — `state` object, `FAMILY_OPTIONS`, `FAMILY_QUALITIES`, `PATTERN_TABS`, `render()`, `attachEvents()`, bootstrap call
+3. **Scale & pattern generation** (lines 80-181) — `chordNotes()`, pentatonic generators, `MODES` array, `generatePatterns()` — diatonic chords (triads or 7ths based on family), pentatonic scales, blues scale, harmonic/melodic minor, all 7 modes, secondary dominants, borrowed chords, tritone sub; each pattern has a `category` field ("diatonic", "scales", or "functional")
+4. **Fretboard rendering** (lines 183-296) — `computeFretRange()`, `renderFretboardSVG()` — SVG generation for fretboard diagrams
+5. **UI state & rendering** (lines 298-480) — `state` object, `FAMILY_OPTIONS`, `FAMILY_QUALITIES`, `PATTERN_TABS`, `render()`, `attachEvents()`, bootstrap call
 
 ### State Management
 
@@ -51,7 +51,7 @@ const state = {
   quality: "major",       // Quality within the active family
   inversion: 1,           // 0-2 for triads, 0-3 for 7th chords
   stringGroup: 2,         // 0-3 for triads (3 strings), 0-2 for 7ths (4 strings)
-  patternCategory: "all", // "all", "diatonic", or "scales"
+  patternCategory: "all", // "all", "diatonic", "scales", or "functional"
   selectedPattern: null   // Index into patterns array, or null
 };
 ```
@@ -118,7 +118,7 @@ CSS custom properties in `:root` control the dark theme. A `@media print` block 
 - **Inversions**: Implemented as array rotation of the chord degree order (3 for triads, 4 for 7ths)
 - **String groups**: Triads use 4 groups of 3 consecutive strings; 7ths use 3 groups of 4 consecutive strings
 - **Voicing selection**: Cartesian product of all fret options across N strings, picks smallest span (max 5 frets)
-- **Patterns**: Diatonic chords (triads or 7th chords matching the active family), pentatonic scales, and all 7 modes generated relative to the selected root; each pattern tagged with a `category` for tab filtering
+- **Patterns**: Diatonic chords (triads or 7th chords matching the active family), pentatonic scales, blues scale, harmonic/melodic minor (for minor qualities), all 7 modes, secondary dominants (V7/ii–V7/vi), borrowed chords (♭III, ♭VI, ♭VII for major qualities), and tritone sub (♭II7); each pattern tagged with a `category` ("diatonic", "scales", or "functional") for tab filtering
 
 ## Development Guidelines
 

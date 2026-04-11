@@ -136,10 +136,46 @@ function generatePatterns(root, quality, family) {
     patterns.push({ name: `${root} minor pentatonic`, notes: minorPentatonic(ri), desc: "5-note minor scale", category: "scales" });
   }
 
+  // Blues scale
+  patterns.push({ name: `${root} blues scale`, notes: [0,3,5,6,7,10].map(s => (ri + s) % 12), desc: "Minor pentatonic + ♭5", category: "scales" });
+
+  // Harmonic & melodic minor
+  if (minorQualities.includes(quality)) {
+    patterns.push({ name: `${root} harmonic minor`, notes: [0,2,3,5,7,8,11].map(s => (ri + s) % 12), desc: "Natural minor with raised 7th", category: "scales" });
+    patterns.push({ name: `${root} melodic minor`,  notes: [0,2,3,5,7,9,11].map(s => (ri + s) % 12), desc: "Natural minor with raised 6th & 7th", category: "scales" });
+  }
+
   // All 7 modes
   for (const mode of MODES) {
     patterns.push({ name: `${root} ${mode.name}`, notes: mode.steps.map(s => (ri + s) % 12), desc: mode.desc, category: "scales" });
   }
+
+  // ── Functional patterns ──
+
+  // Secondary dominants (V7 of each diatonic chord)
+  const secDom = [
+    { label: "V7/ii",  sr: (ri + 9) % 12,  resolves: `${noteName(ii)}m` },
+    { label: "V7/iii", sr: (ri + 11) % 12, resolves: `${noteName(iii)}m` },
+    { label: "V7/IV",  sr: ri,              resolves: noteName(iv) },
+    { label: "V7/V",   sr: (ri + 2) % 12,  resolves: noteName(v) },
+    { label: "V7/vi",  sr: (ri + 4) % 12,  resolves: `${noteName(vi)}m` },
+  ];
+  for (const sd of secDom) {
+    patterns.push({ name: `${sd.label} — ${noteName(sd.sr)}7`, notes: chordNotes(sd.sr, "dom7"), desc: `Resolves to ${sd.resolves}`, category: "functional" });
+  }
+
+  // Borrowed chords (from parallel minor when major-type, from parallel major when minor-type)
+  const majorQualities = ["major", "aug", "sus2", "sus4", "maj7", "dom7"];
+  if (majorQualities.includes(quality)) {
+    const biii = (ri + 3) % 12, bvi = (ri + 8) % 12, bvii = (ri + 10) % 12;
+    patterns.push({ name: `♭III — ${noteName(biii)}`,  notes: chordNotes(biii, "major"), desc: "Borrowed from parallel minor", category: "functional" });
+    patterns.push({ name: `♭VI — ${noteName(bvi)}`,    notes: chordNotes(bvi, "major"),  desc: "Borrowed from parallel minor", category: "functional" });
+    patterns.push({ name: `♭VII — ${noteName(bvii)}`,   notes: chordNotes(bvii, "major"), desc: "Borrowed from parallel minor", category: "functional" });
+  }
+
+  // Tritone substitution (♭II7 — tritone sub for V7)
+  const tritone = (ri + 1) % 12;
+  patterns.push({ name: `♭II7 — ${noteName(tritone)}7`, notes: chordNotes(tritone, "dom7"), desc: "Tritone sub for V7", category: "functional" });
 
   return patterns;
 }
@@ -299,6 +335,7 @@ const PATTERN_TABS = [
   { key: "all", label: "All" },
   { key: "diatonic", label: "Diatonic" },
   { key: "scales", label: "Scales" },
+  { key: "functional", label: "Functional" },
 ];
 
 const state = {
