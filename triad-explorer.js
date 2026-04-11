@@ -429,6 +429,9 @@ function render() {
   let mainTitle = `<span class="chord-name">${chordName}</span>`;
   mainTitle += `<span class="inv-tag">${inversions[inversion]}</span>`;
   mainTitle += `<span class="inv-tag">${sg.label} strings</span>`;
+  const voicingDegrees = [...voicing].reverse().map(v => v.degree).join(" ");
+  const voicingNotes = [...voicing].reverse().map(v => v.note).join(" ");
+  mainTitle += `<span class="inv-tag">${voicingDegrees} / <strong>${voicingNotes}</strong></span>`;
   if (activePattern) {
     mainTitle += `<span class="inv-tag" style="border-color:var(--pattern-note);color:var(--pattern-note)">+ ${activePattern.name}</span>`;
   }
