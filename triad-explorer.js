@@ -194,7 +194,7 @@ function computeFretRange(triadPositions, totalFrets) {
   return [start, end];
 }
 
-function renderFretboardSVG(triadPositions, patternNotes, fretRange, compact) {
+function renderFretboardSVG(triadPositions, patternNotes, fretRange, compact, ghostPositions) {
   const [startFret, endFret] = fretRange;
   const numFrets = endFret - startFret;
   const ss = compact ? 20 : 20;   // string spacing
@@ -239,6 +239,20 @@ function renderFretboardSVG(triadPositions, patternNotes, fretRange, compact) {
     const fretNum = startFret + i + 1;
     if (fretNum < 0) continue;
     svg += `<text x="${lp + i * fs + fs / 2}" y="${h - 2}" text-anchor="middle" font-size="${compact ? 8 : 9}" fill="var(--text-muted)" font-family="monospace">${fretNum}</text>`;
+  }
+
+  // Ghost inversion notes (other nearby inversions, rendered muted)
+  if (ghostPositions && ghostPositions.length && !compact) {
+    const triadKeys = new Set(triadPositions.map(p => `${p.string}-${p.fret}`));
+    for (const gp of ghostPositions) {
+      if (gp.fret < startFret || gp.fret > endFret) continue;
+      if (triadKeys.has(`${gp.string}-${gp.fret}`)) continue;
+      const fi = gp.fret - startFret - 1;
+      const cx = lp + fi * fs + fs / 2;
+      const cy = tp + gp.string * ss;
+      svg += `<circle cx="${cx}" cy="${cy}" r="${dotRadius}" fill="var(--ghost-fill)" stroke="var(--ghost-stroke)" stroke-width="1.5" opacity="0.2"/>`;
+      svg += `<text x="${cx}" y="${cy + 3.5}" text-anchor="middle" font-size="10" fill="var(--ghost-text)" font-weight="700" font-family="monospace" opacity="0.25">${gp.degree}</text>`;
+    }
   }
 
   // Build triad position map
@@ -296,7 +310,8 @@ function renderFretboardSVG(triadPositions, patternNotes, fretRange, compact) {
 }
 
 // ── UI state & rendering ────────────────────────────────────────────
-const ROOTS = NOTES;
+const FLAT_NAMES = { "C#":"Db", "D#":"Eb", "F#":"Gb", "G#":"Ab", "A#":"Bb" };
+const ROOTS = NOTES.map(n => FLAT_NAMES[n] ? { key: n, label: n + "/" + FLAT_NAMES[n] } : n);
 const FAMILY_OPTIONS = [
   { key: "triad", label: "Triad" },
   { key: "7th", label: "7th" },
@@ -401,6 +416,15 @@ function render() {
   const activePattern = selectedPattern !== null ? patterns[selectedPattern] : null;
   const activeNotes = activePattern ? activePattern.notes : null;
 
+  // Compute ghost voicings from other inversions on the same string group
+  const ghostPositions = [];
+  const numInversions = inversions.length;
+  for (let inv = 0; inv < numInversions; inv++) {
+    if (inv === inversion) continue;
+    const gv = findVoicingOnStrings(root, quality, inv, sg.idx);
+    if (gv) ghostPositions.push(...gv);
+  }
+
   // Main fretboard
   let mainTitle = `<span class="chord-name">${chordName}</span>`;
   mainTitle += `<span class="inv-tag">${inversions[inversion]}</span>`;
@@ -409,7 +433,7 @@ function render() {
     mainTitle += `<span class="inv-tag" style="border-color:var(--pattern-note);color:var(--pattern-note)">+ ${activePattern.name}</span>`;
   }
   document.getElementById("main-board").innerHTML =
-    `<div class="main-fretboard"><div class="main-title">${mainTitle}</div>${renderFretboardSVG(voicing, activeNotes, fretRange, false)}</div>`;
+    `<div class="main-fretboard"><div class="main-title">${mainTitle}</div>${renderFretboardSVG(voicing, activeNotes, fretRange, false, ghostPositions)}</div>`;
 
   // Pattern header with category tabs
   let tabsHtml = `<span class="patterns-label">Related patterns</span><div class="pattern-tabs">`;
