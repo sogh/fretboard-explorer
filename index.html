@@ -59,6 +59,53 @@ body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono',
 .print-btn:hover { color: var(--text); background: var(--surface-hover); border-color: var(--accent); }
 svg { width: 100%; height: auto; display: block; }
 
+.page-nav { display: flex; gap: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 2px; margin-bottom: 20px; width: fit-content; }
+.nav-btn {
+  padding: 8px 18px; border: none; background: transparent; color: var(--text-muted);
+  font-family: inherit; font-size: 12px; font-weight: 500; cursor: pointer;
+  border-radius: 4px; transition: all 0.15s; text-transform: uppercase; letter-spacing: 1.5px;
+}
+.nav-btn:hover { color: var(--text); background: var(--surface-hover); }
+.nav-btn.active { color: var(--accent); background: var(--accent-glow); }
+.page[hidden] { display: none; }
+
+.circle-layout { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; margin-bottom: 24px; }
+.circle-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; flex: 0 0 auto; width: 480px; max-width: 100%; }
+#circle-svg { width: 100%; }
+#circle-svg svg { width: 100%; height: auto; display: block; }
+.circle-info { flex: 1; min-width: 240px; display: flex; flex-direction: column; gap: 12px; }
+.circle-key-title { font-size: 24px; font-weight: 700; color: var(--accent); }
+.circle-key-sub { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-top: -6px; }
+.diatonic-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 6px; }
+.diatonic-chord { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; text-align: center; }
+.diatonic-chord.tonic { border-color: var(--accent); background: var(--accent-glow); }
+.diatonic-roman { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+.diatonic-name { font-size: 13px; font-weight: 600; color: var(--text); margin-top: 2px; }
+
+.borrow-section { margin-bottom: 20px; }
+.borrow-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); font-weight: 500; margin-bottom: 8px; }
+.borrow-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+.borrow-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }
+.borrow-roman { font-size: 10px; color: var(--pattern-note); font-weight: 600; letter-spacing: 0.5px; }
+.borrow-name { font-size: 14px; font-weight: 600; color: var(--text); margin-top: 2px; }
+.borrow-desc { font-size: 9px; color: var(--text-muted); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+.circle-wedge { fill: #1f1f2c; stroke: var(--border); stroke-width: 1; }
+.circle-wedge.in-key { fill: rgba(90,122,255,0.18); stroke: var(--accent); stroke-width: 1.5; }
+.circle-wedge.tonic { fill: var(--accent); stroke: var(--accent); stroke-width: 1.5; }
+.circle-label { fill: var(--text); font-family: 'JetBrains Mono', monospace; font-weight: 600; text-anchor: middle; }
+.circle-label.muted { fill: var(--text-dim); }
+.circle-label.tonic { fill: #fff; }
+.circle-roman { fill: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-weight: 500; text-anchor: middle; font-size: 10px; }
+.circle-roman.in-key { fill: var(--accent); }
+.circle-roman.tonic { fill: #fff; }
+
+@media print {
+  .page-nav { display: none; }
+  .circle-wrap { border: 1px solid #ccc; }
+  .borrow-card { border: 1px solid #ccc; break-inside: avoid; }
+}
+
 @media print {
   :root {
     --bg: #fff; --surface: #fff; --surface-hover: #fff; --border: #ccc;
@@ -85,12 +132,41 @@ svg { width: 100%; height: auto; display: block; }
 </head>
 <body>
 
-<div id="print-header" class="print-only" style="margin-bottom:12px"></div>
-<div id="controls" class="controls no-print"></div>
-<div id="main-board"></div>
-<div id="pattern-header" class="pattern-header"></div>
-<div id="patterns" class="patterns-grid"></div>
+<nav id="page-nav" class="page-nav no-print">
+  <button class="nav-btn active" data-page="fretboard">Fretboard</button>
+  <button class="nav-btn" data-page="circle">Circle of Fifths</button>
+</nav>
+
+<div id="page-fretboard" class="page">
+  <div id="print-header" class="print-only" style="margin-bottom:12px"></div>
+  <div id="controls" class="controls no-print"></div>
+  <div id="main-board"></div>
+  <div id="pattern-header" class="pattern-header"></div>
+  <div id="patterns" class="patterns-grid"></div>
+</div>
+
+<div id="page-circle" class="page" hidden>
+  <div id="circle-controls" class="controls no-print"></div>
+  <div class="circle-layout">
+    <div class="circle-wrap"><div id="circle-svg"></div></div>
+    <div id="circle-info" class="circle-info"></div>
+  </div>
+  <div id="borrowed-sections"></div>
+</div>
 
 <script src="triad-explorer.js"></script>
+<script src="circle-of-fifths.js"></script>
+<script>
+(function(){
+  const pages = { fretboard: document.getElementById("page-fretboard"), circle: document.getElementById("page-circle") };
+  document.querySelectorAll("#page-nav .nav-btn").forEach(btn => {
+    btn.onclick = () => {
+      const p = btn.dataset.page;
+      document.querySelectorAll("#page-nav .nav-btn").forEach(b => b.classList.toggle("active", b.dataset.page === p));
+      Object.entries(pages).forEach(([k, el]) => { el.hidden = k !== p; });
+    };
+  });
+})();
+</script>
 </body>
 </html>
