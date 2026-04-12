@@ -102,18 +102,27 @@ function renderKeyboardSVG(opts) {
     }
   }
 
-  // White keys
+  // Circle dot sizes — small enough to preserve the key shape, big enough to hold a label.
+  const whiteDotR  = compact ? 5.5 : 9;
+  const blackDotR  = compact ? 3.75 : 5.5;
+  const whiteDotCy = whiteH - whiteDotR - (compact ? 3 : 5);
+  const blackDotCy = blackH - blackDotR - (compact ? 2 : 3);
+
+  // White keys — always neutral background so the keyboard pattern stays readable.
   for (const w of whiteKeys) {
     const c = classify(w.midi, w.pc);
-    let fill = "#e8e8ec";
-    if (c.mode === "root" || c.mode === "chord") fill = "var(--triad-fill)";
-    else if (c.mode === "scale") fill = "var(--pattern-note)";
-    const stroke = c.mode === "root" ? "var(--triad-stroke)" : "#1a1a24";
-    const strokeW = c.mode === "root" ? 2 : 0.6;
-    svg += `<rect x="${w.x + 0.5}" y="0" width="${whiteW - 1}" height="${whiteH}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeW}" rx="2" ry="2"/>`;
-    if (c.mode !== "none" && c.label) {
-      const textFill = c.mode === "scale" ? "var(--pattern-text)" : "var(--triad-text)";
-      svg += `<text x="${w.x + whiteW/2}" y="${whiteH - (compact ? 7 : 11)}" text-anchor="middle" font-size="${compact ? 8 : 11}" fill="${textFill}" font-weight="700" font-family="'JetBrains Mono', monospace">${c.label}</text>`;
+    svg += `<rect x="${w.x + 0.5}" y="0" width="${whiteW - 1}" height="${whiteH}" fill="#e8e8ec" stroke="#1a1a24" stroke-width="0.6" rx="2" ry="2"/>`;
+    if (c.mode !== "none") {
+      const cx = w.x + whiteW / 2;
+      let dotFill = "var(--pattern-note)";
+      if (c.mode === "root" || c.mode === "chord") dotFill = "var(--triad-fill)";
+      const dotStroke = c.mode === "root" ? "var(--triad-stroke)" : "none";
+      const dotStrokeW = c.mode === "root" ? 2 : 0;
+      svg += `<circle cx="${cx}" cy="${whiteDotCy}" r="${whiteDotR}" fill="${dotFill}" stroke="${dotStroke}" stroke-width="${dotStrokeW}"/>`;
+      if (c.label) {
+        const textFill = c.mode === "scale" ? "var(--pattern-text)" : "var(--triad-text)";
+        svg += `<text x="${cx}" y="${whiteDotCy + (compact ? 3 : 4)}" text-anchor="middle" font-size="${compact ? 8 : 11}" fill="${textFill}" font-weight="700" font-family="'JetBrains Mono', monospace">${c.label}</text>`;
+      }
     }
     if (showOct && w.pc === 0) {
       const oct = Math.floor(w.midi / 12) - 1;
@@ -121,18 +130,21 @@ function renderKeyboardSVG(opts) {
     }
   }
 
-  // Black keys (drawn on top of whites)
+  // Black keys (drawn on top of whites) — always dark background.
   for (const b of blackKeys) {
     const c = classify(b.midi, b.pc);
-    let fill = "#1c1c24";
-    if (c.mode === "root" || c.mode === "chord") fill = "var(--triad-fill)";
-    else if (c.mode === "scale") fill = "var(--pattern-note)";
-    const stroke = c.mode === "root" ? "var(--triad-stroke)" : "#000";
-    const strokeW = c.mode === "root" ? 2 : 0.6;
-    svg += `<rect x="${b.x}" y="0" width="${blackW}" height="${blackH}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeW}" rx="1.5" ry="1.5"/>`;
-    if (c.mode !== "none" && c.label) {
-      const textFill = c.mode === "scale" ? "var(--pattern-text)" : "#fff";
-      svg += `<text x="${b.x + blackW/2}" y="${blackH - (compact ? 5 : 8)}" text-anchor="middle" font-size="${compact ? 7 : 9}" fill="${textFill}" font-weight="700" font-family="'JetBrains Mono', monospace">${c.label}</text>`;
+    svg += `<rect x="${b.x}" y="0" width="${blackW}" height="${blackH}" fill="#1c1c24" stroke="#000" stroke-width="0.6" rx="1.5" ry="1.5"/>`;
+    if (c.mode !== "none") {
+      const cx = b.x + blackW / 2;
+      let dotFill = "var(--pattern-note)";
+      if (c.mode === "root" || c.mode === "chord") dotFill = "var(--triad-fill)";
+      const dotStroke = c.mode === "root" ? "var(--triad-stroke)" : "none";
+      const dotStrokeW = c.mode === "root" ? 1.5 : 0;
+      svg += `<circle cx="${cx}" cy="${blackDotCy}" r="${blackDotR}" fill="${dotFill}" stroke="${dotStroke}" stroke-width="${dotStrokeW}"/>`;
+      if (c.label) {
+        const textFill = c.mode === "scale" ? "var(--pattern-text)" : "#fff";
+        svg += `<text x="${cx}" y="${blackDotCy + (compact ? 2.5 : 3.5)}" text-anchor="middle" font-size="${compact ? 7 : 9}" fill="${textFill}" font-weight="700" font-family="'JetBrains Mono', monospace">${c.label}</text>`;
+      }
     }
   }
 
