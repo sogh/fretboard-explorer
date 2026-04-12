@@ -1,20 +1,8 @@
-// ── Music theory constants ──────────────────────────────────────────
-const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+// ── Guitar-specific constants ───────────────────────────────────────
+// Music theory (NOTES, noteIndex, noteName, CHORD_INTERVALS) comes from theory.js.
 const STANDARD_TUNING = [4, 11, 7, 2, 9, 4]; // E B G D A E
 const STRING_NAMES = ["E","B","G","D","A","E"];
 const NUM_FRETS = 15;
-
-const noteIndex = n => NOTES.indexOf(n);
-const noteName = i => NOTES[((i % 12) + 12) % 12];
-
-const CHORD_INTERVALS = {
-  major: [0, 4, 7], minor: [0, 3, 7],
-  dim: [0, 3, 6], aug: [0, 4, 8],
-  sus2: [0, 2, 7], sus4: [0, 5, 7],
-  maj7: [0, 4, 7, 11], dom7: [0, 4, 7, 10],
-  min7: [0, 3, 7, 10], mM7: [0, 3, 7, 11],
-  dim7: [0, 3, 6, 9], m7b5: [0, 3, 6, 10],
-};
 
 // ── Triad logic ─────────────────────────────────────────────────────
 function getTriadNotes(root, quality, inversion) {

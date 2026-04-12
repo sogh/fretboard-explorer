@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Fretboard Explorer</title>
+<title>Piano Theory Toolbox</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
 :root {
@@ -11,14 +11,25 @@
   --border: #2a2a3a; --text: #e0e0e8; --text-muted: #6a6a7a; --text-dim: #4a4a5a;
   --accent: #5a7aff; --accent-glow: rgba(90,122,255,0.15);
   --triad-fill: #5a7aff; --triad-stroke: #8aa0ff; --triad-text: #fff;
-  --ghost-fill: #5a7aff; --ghost-stroke: #8aa0ff; --ghost-text: #fff;
   --pattern-note: #cc8800; --pattern-text: #fff;
-  --fret-color: #3a3a4a; --string-color: #5a5a6a; --dot-muted: #4a4a5a;
   --tag-bg: #1a1a28; --tag-border: #2a2a3a;
   --selected-bg: rgba(90,122,255,0.12); --selected-border: #5a7aff;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; padding: 20px 16px; }
+
+.page-nav { display: flex; gap: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 2px; margin-bottom: 20px; width: fit-content; }
+.nav-btn {
+  padding: 8px 18px; border: none; background: transparent; color: var(--text-muted);
+  font-family: inherit; font-size: 12px; font-weight: 500; cursor: pointer;
+  border-radius: 4px; transition: all 0.15s; text-transform: uppercase; letter-spacing: 1.5px;
+}
+.nav-btn:hover { color: var(--text); background: var(--surface-hover); }
+.nav-btn.active { color: var(--accent); background: var(--accent-glow); }
+.nav-btn.switch { color: var(--text-dim); }
+.nav-btn.switch:hover { color: var(--text); }
+.page[hidden] { display: none; }
+
 .controls { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
 .control-group { display: flex; flex-direction: column; gap: 4px; }
 .control-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); font-weight: 500; }
@@ -31,11 +42,20 @@ body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono',
 .control-btn:hover { color: var(--text); background: var(--surface-hover); }
 .control-btn.active { color: var(--accent); background: var(--accent-glow); }
 .control-btn:disabled, .control-btn.disabled { opacity: 0.35; cursor: not-allowed; }
-.control-btn:disabled:hover, .control-btn.disabled:hover { color: var(--text-muted); background: transparent; }
-.main-fretboard { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 12px 8px; margin-bottom: 24px; max-width: 700px; }
-.main-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.chord-name { color: var(--accent); }
+
+.main-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 24px; }
+.main-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.chord-name { color: var(--accent); font-size: 15px; }
 .inv-tag { font-size: 9px; padding: 2px 6px; background: var(--tag-bg); border: 1px solid var(--tag-border); border-radius: 3px; color: var(--text-muted); font-weight: 400; }
+.formula-tag { font-size: 11px; padding: 2px 8px; background: var(--tag-bg); border: 1px solid var(--tag-border); border-radius: 3px; color: var(--text); font-weight: 500; letter-spacing: 2px; }
+
+.keyboard-scroll { overflow-x: auto; }
+
+.scale-tones { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.scale-tone { display: inline-flex; align-items: baseline; gap: 4px; padding: 3px 8px; background: var(--tag-bg); border: 1px solid var(--tag-border); border-radius: 4px; }
+.scale-tone-deg { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.scale-tone-note { font-size: 12px; font-weight: 600; color: var(--text); }
+
 .pattern-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 .patterns-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); font-weight: 500; }
 .pattern-tabs { display: flex; gap: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 2px; }
@@ -52,47 +72,22 @@ body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono',
 .pattern-card.selected { border-color: var(--selected-border); background: var(--selected-bg); }
 .pattern-name { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
 .pattern-desc { font-size: 9px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
-.pattern-notes-list { font-size: 9px; color: var(--text-dim); margin-top: 4px; }
-.print-btn {
-  padding: 6px 14px; border: 1px solid var(--border); background: var(--surface);
-  color: var(--text-muted); font-family: inherit; font-size: 11px; font-weight: 500;
-  cursor: pointer; border-radius: 4px; transition: all 0.15s;
-}
-.print-btn:hover { color: var(--text); background: var(--surface-hover); border-color: var(--accent); }
-svg { width: 100%; height: auto; display: block; }
 
-.page-nav { display: flex; gap: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 2px; margin-bottom: 20px; width: fit-content; }
-.nav-btn {
-  padding: 8px 18px; border: none; background: transparent; color: var(--text-muted);
-  font-family: inherit; font-size: 12px; font-weight: 500; cursor: pointer;
-  border-radius: 4px; transition: all 0.15s; text-transform: uppercase; letter-spacing: 1.5px;
-}
-.nav-btn:hover { color: var(--text); background: var(--surface-hover); }
-.nav-btn.active { color: var(--accent); background: var(--accent-glow); }
-.nav-btn.switch { color: var(--text-dim); }
-.nav-btn.switch:hover { color: var(--text); }
-.page[hidden] { display: none; }
+.step-bracket { display: flex; gap: 2px; margin-bottom: 8px; font-size: 10px; color: var(--text-muted); letter-spacing: 1px; }
+.step-bracket span { padding: 2px 8px; background: var(--tag-bg); border-radius: 3px; }
 
+/* Circle of fifths styles */
 .circle-layout { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; margin-bottom: 24px; }
 .circle-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; flex: 0 0 auto; width: 480px; max-width: 100%; }
-#circle-svg { width: 100%; }
-#circle-svg svg { width: 100%; height: auto; display: block; }
+.circle-wrap svg { width: 100%; height: auto; display: block; }
 .circle-info { flex: 1; min-width: 240px; display: flex; flex-direction: column; gap: 12px; }
 .circle-key-title { font-size: 24px; font-weight: 700; color: var(--accent); }
 .circle-key-sub { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-top: -6px; }
-.diatonic-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 6px; }
+.diatonic-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 6px; }
 .diatonic-chord { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; text-align: center; }
 .diatonic-chord.tonic { border-color: var(--accent); background: var(--accent-glow); }
 .diatonic-roman { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
 .diatonic-name { font-size: 13px; font-weight: 600; color: var(--text); margin-top: 2px; }
-
-.borrow-section { margin-bottom: 20px; }
-.borrow-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); font-weight: 500; margin-bottom: 8px; }
-.borrow-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
-.borrow-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }
-.borrow-roman { font-size: 10px; color: var(--pattern-note); font-weight: 600; letter-spacing: 0.5px; }
-.borrow-name { font-size: 14px; font-weight: 600; color: var(--text); margin-top: 2px; }
-.borrow-desc { font-size: 10px; color: var(--text-muted); margin-top: 3px; letter-spacing: 0.3px; }
 
 .circle-wedge { fill: #1f1f2c; stroke: var(--border); stroke-width: 1; }
 .circle-wedge.in-key { fill: rgba(90,122,255,0.18); stroke: var(--accent); stroke-width: 1.5; }
@@ -104,85 +99,74 @@ svg { width: 100%; height: auto; display: block; }
 .circle-roman.in-key { fill: var(--accent); }
 .circle-roman.tonic { fill: #fff; }
 
-.scale-tones { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-.scale-tone { display: inline-flex; align-items: baseline; gap: 4px; padding: 3px 8px; background: var(--tag-bg); border: 1px solid var(--tag-border); border-radius: 4px; }
-.scale-tone-deg { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-.scale-tone-note { font-size: 12px; font-weight: 600; color: var(--text); }
+.keysig-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+.keysig-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); margin-bottom: 10px; }
+.chord-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 20px; }
+.chord-strip-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 8px; }
+.chord-strip-card.tonic { border-color: var(--accent); }
+.chord-strip-roman { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
+.chord-strip-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
 
-@media print {
-  .page-nav { display: none; }
-  .circle-wrap { border: 1px solid #ccc; }
-  .borrow-card { border: 1px solid #ccc; break-inside: avoid; }
-}
+.voicing-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px; }
 
-@media print {
-  :root {
-    --bg: #fff; --surface: #fff; --surface-hover: #fff; --border: #ccc;
-    --text: #111; --text-muted: #555; --text-dim: #888;
-    --accent: #2255cc; --accent-glow: transparent;
-    --triad-fill: #2255cc; --triad-stroke: #4477ee; --triad-text: #fff;
-    --ghost-fill: #2255cc; --ghost-stroke: #4477ee; --ghost-text: #fff;
-    --pattern-note: #cc8800; --pattern-text: #222;
-    --fret-color: #bbb; --string-color: #999; --dot-muted: #ccc;
-    --tag-bg: #f0f0f0; --tag-border: #ccc;
-    --selected-bg: #eef2ff; --selected-border: #2255cc;
-  }
-  body { padding: 12px; }
-  .no-print { display: none !important; }
-  .print-only { display: block !important; }
-  .main-fretboard { border: 1px solid #ccc; break-inside: avoid; margin-bottom: 12px; }
-  .patterns-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
-  .pattern-card { border: 1px solid #ccc; break-inside: avoid; padding: 6px; }
-  .pattern-card.selected { border: 2px solid #2255cc; }
-  .pattern-tabs { display: none; }
-}
-@media not print { .print-only { display: none; } }
+.borrow-section { margin-bottom: 20px; }
+.borrow-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); font-weight: 500; margin-bottom: 8px; }
+.borrow-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+.borrow-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }
+.borrow-roman { font-size: 10px; color: var(--pattern-note); font-weight: 600; letter-spacing: 0.5px; }
+.borrow-name { font-size: 14px; font-weight: 600; color: var(--text); margin-top: 2px; }
+.borrow-desc { font-size: 10px; color: var(--text-muted); margin-top: 3px; letter-spacing: 0.3px; }
+
+svg { width: 100%; height: auto; display: block; }
 </style>
 </head>
 <body>
 
-<nav id="page-nav" class="page-nav no-print">
-  <button class="nav-btn active" data-page="fretboard">Triads</button>
+<nav id="page-nav" class="page-nav">
+  <button class="nav-btn active" data-page="scales">Scales &amp; Modes</button>
+  <button class="nav-btn" data-page="voicings">Voicings</button>
   <button class="nav-btn" data-page="circle">Circle of Fifths</button>
-  <button class="nav-btn" data-page="scales">Scales &amp; Modes</button>
-  <a class="nav-btn switch" href="piano.html" style="text-decoration:none">→ Piano</a>
+  <a class="nav-btn switch" href="index.html" style="text-decoration:none">→ Guitar</a>
 </nav>
 
-<div id="page-fretboard" class="page">
-  <div id="print-header" class="print-only" style="margin-bottom:12px"></div>
-  <div id="controls" class="controls no-print"></div>
-  <div id="main-board"></div>
-  <div id="pattern-header" class="pattern-header"></div>
-  <div id="patterns" class="patterns-grid"></div>
-</div>
-
-<div id="page-circle" class="page" hidden>
-  <div id="circle-controls" class="controls no-print"></div>
-  <div class="circle-layout">
-    <div class="circle-wrap"><div id="circle-svg"></div></div>
-    <div id="circle-info" class="circle-info"></div>
-  </div>
-  <div id="borrowed-sections"></div>
-</div>
-
-<div id="page-scales" class="page" hidden>
-  <div id="scales-controls" class="controls no-print"></div>
+<div id="page-scales" class="page">
+  <div id="scales-controls" class="controls"></div>
   <div id="scales-main"></div>
   <div id="scales-info" class="pattern-header"></div>
   <div id="scales-positions" class="patterns-grid"></div>
 </div>
 
+<div id="page-voicings" class="page" hidden>
+  <div id="voicings-controls" class="controls"></div>
+  <div id="voicings-main"></div>
+  <div id="voicings-info" class="pattern-header"></div>
+  <div id="voicings-patterns" class="patterns-grid"></div>
+</div>
+
+<div id="page-circle" class="page" hidden>
+  <div id="circle-controls" class="controls"></div>
+  <div class="circle-layout">
+    <div class="circle-wrap"><div id="circle-svg"></div></div>
+    <div id="circle-info" class="circle-info"></div>
+  </div>
+  <div id="keysig-panel"></div>
+  <div id="chord-strip"></div>
+  <div id="borrowed-sections"></div>
+</div>
+
 <script src="theory.js"></script>
-<script src="triad-explorer.js"></script>
-<script src="circle-of-fifths.js"></script>
-<script src="scales-modes.js"></script>
+<script src="keyboard.js"></script>
+<script src="piano-scales.js"></script>
+<script src="piano-voicings.js"></script>
+<script src="piano-circle.js"></script>
 <script>
 (function(){
-  const pageIds = ["fretboard", "circle", "scales"];
+  const pageIds = ["scales", "voicings", "circle"];
   const pages = Object.fromEntries(pageIds.map(id => [id, document.getElementById(`page-${id}`)]));
   document.querySelectorAll("#page-nav .nav-btn").forEach(btn => {
     btn.onclick = () => {
       const p = btn.dataset.page;
+      if (!p) return;
       document.querySelectorAll("#page-nav .nav-btn").forEach(b => b.classList.toggle("active", b.dataset.page === p));
       Object.entries(pages).forEach(([k, el]) => { el.hidden = k !== p; });
     };
