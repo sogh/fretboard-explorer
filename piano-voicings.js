@@ -191,8 +191,13 @@ function renderPianoVoicings() {
   document.getElementById("voicings-controls").innerHTML = controls;
 
   // ── Main voicing ──
-  const notes = buildVoicing(rootPc, st.quality, st.inversion, st.voicing);
+  // For close voicings, start the chord at the lowest visible key so high
+  // roots (e.g. B major close = B4/D♯5/F♯5) don't run off the right edge.
+  // Open and split voicings drop/split notes downward and need headroom, so
+  // leave them at the middle-C default baked into buildVoicing.
   const [rs, re] = rangeForVoicing(st.voicing);
+  const voicingBase = st.voicing === "close" ? rs : undefined;
+  const notes = buildVoicing(rootPc, st.quality, st.inversion, st.voicing, voicingBase);
   const chordName = `${st.root}${CHORD_SYMBOL[st.quality]}`;
   const inversionLbl = INVERSIONS_P[st.family][st.inversion];
   const noteSequence = notes.map(n => noteName(n.midi % 12)).join(" ");
@@ -225,7 +230,7 @@ function renderPianoVoicings() {
   const diatonic = getDiatonicChordsP(rootPc, st.family);
   let cards = "";
   for (const d of diatonic) {
-    const dNotes = buildCloseVoicing(d.rootPc, d.quality, 0, 60);
+    const dNotes = buildCloseVoicing(d.rootPc, d.quality, 0, 48);
     cards += `<div class="pattern-card">
       <div class="pattern-name">${d.roman} — ${d.name}</div>
       <div class="pattern-desc">${CHORD_SYMBOL[d.quality] || "major triad"}</div>
