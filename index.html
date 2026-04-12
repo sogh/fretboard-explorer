@@ -30,6 +30,8 @@ body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono',
 }
 .control-btn:hover { color: var(--text); background: var(--surface-hover); }
 .control-btn.active { color: var(--accent); background: var(--accent-glow); }
+.control-btn:disabled, .control-btn.disabled { opacity: 0.35; cursor: not-allowed; }
+.control-btn:disabled:hover, .control-btn.disabled:hover { color: var(--text-muted); background: transparent; }
 .main-fretboard { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 12px 8px; margin-bottom: 24px; max-width: 700px; }
 .main-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .chord-name { color: var(--accent); }
@@ -88,7 +90,7 @@ svg { width: 100%; height: auto; display: block; }
 .borrow-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }
 .borrow-roman { font-size: 10px; color: var(--pattern-note); font-weight: 600; letter-spacing: 0.5px; }
 .borrow-name { font-size: 14px; font-weight: 600; color: var(--text); margin-top: 2px; }
-.borrow-desc { font-size: 9px; color: var(--text-muted); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
+.borrow-desc { font-size: 10px; color: var(--text-muted); margin-top: 3px; letter-spacing: 0.3px; }
 
 .circle-wedge { fill: #1f1f2c; stroke: var(--border); stroke-width: 1; }
 .circle-wedge.in-key { fill: rgba(90,122,255,0.18); stroke: var(--accent); stroke-width: 1.5; }
@@ -99,6 +101,11 @@ svg { width: 100%; height: auto; display: block; }
 .circle-roman { fill: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-weight: 500; text-anchor: middle; font-size: 10px; }
 .circle-roman.in-key { fill: var(--accent); }
 .circle-roman.tonic { fill: #fff; }
+
+.scale-tones { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.scale-tone { display: inline-flex; align-items: baseline; gap: 4px; padding: 3px 8px; background: var(--tag-bg); border: 1px solid var(--tag-border); border-radius: 4px; }
+.scale-tone-deg { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.scale-tone-note { font-size: 12px; font-weight: 600; color: var(--text); }
 
 @media print {
   .page-nav { display: none; }
@@ -133,8 +140,9 @@ svg { width: 100%; height: auto; display: block; }
 <body>
 
 <nav id="page-nav" class="page-nav no-print">
-  <button class="nav-btn active" data-page="fretboard">Fretboard</button>
+  <button class="nav-btn active" data-page="fretboard">Triads</button>
   <button class="nav-btn" data-page="circle">Circle of Fifths</button>
+  <button class="nav-btn" data-page="scales">Scales &amp; Modes</button>
 </nav>
 
 <div id="page-fretboard" class="page">
@@ -154,11 +162,20 @@ svg { width: 100%; height: auto; display: block; }
   <div id="borrowed-sections"></div>
 </div>
 
+<div id="page-scales" class="page" hidden>
+  <div id="scales-controls" class="controls no-print"></div>
+  <div id="scales-main"></div>
+  <div id="scales-info" class="pattern-header"></div>
+  <div id="scales-positions" class="patterns-grid"></div>
+</div>
+
 <script src="triad-explorer.js"></script>
 <script src="circle-of-fifths.js"></script>
+<script src="scales-modes.js"></script>
 <script>
 (function(){
-  const pages = { fretboard: document.getElementById("page-fretboard"), circle: document.getElementById("page-circle") };
+  const pageIds = ["fretboard", "circle", "scales"];
+  const pages = Object.fromEntries(pageIds.map(id => [id, document.getElementById(`page-${id}`)]));
   document.querySelectorAll("#page-nav .nav-btn").forEach(btn => {
     btn.onclick = () => {
       const p = btn.dataset.page;
