@@ -18,12 +18,12 @@ const CHORD_INTERVALS = {
 
 // Scale catalogue. Each entry: { name, steps (semitones from root), degrees, formula }.
 const SCALES = {
-  ionian:     { name: "Ionian (Major)",   steps: [0,2,4,5,7,9,11],           degrees: ["1","2","3","4","5","6","7"],             formula: "W W H W W W H" },
+  ionian:     { name: "Ionian (major)",   steps: [0,2,4,5,7,9,11],           degrees: ["1","2","3","4","5","6","7"],             formula: "W W H W W W H" },
   dorian:     { name: "Dorian",           steps: [0,2,3,5,7,9,10],           degrees: ["1","2","♭3","4","5","6","♭7"],           formula: "W H W W W H W" },
   phrygian:   { name: "Phrygian",         steps: [0,1,3,5,7,8,10],           degrees: ["1","♭2","♭3","4","5","♭6","♭7"],         formula: "H W W W H W W" },
   lydian:     { name: "Lydian",           steps: [0,2,4,6,7,9,11],           degrees: ["1","2","3","♯4","5","6","7"],            formula: "W W W H W W H" },
   mixolydian: { name: "Mixolydian",       steps: [0,2,4,5,7,9,10],           degrees: ["1","2","3","4","5","6","♭7"],            formula: "W W H W W H W" },
-  aeolian:    { name: "Aeolian (Minor)",  steps: [0,2,3,5,7,8,10],           degrees: ["1","2","♭3","4","5","♭6","♭7"],          formula: "W H W W H W W" },
+  aeolian:    { name: "Aeolian (minor)",  steps: [0,2,3,5,7,8,10],           degrees: ["1","2","♭3","4","5","♭6","♭7"],          formula: "W H W W H W W" },
   locrian:    { name: "Locrian",          steps: [0,1,3,5,6,8,10],           degrees: ["1","♭2","♭3","4","♭5","♭6","♭7"],        formula: "H W W H W W W" },
   majorPent:  { name: "Major Pentatonic", steps: [0,2,4,7,9],                degrees: ["1","2","3","5","6"],                     formula: "W W m3 W m3" },
   minorPent:  { name: "Minor Pentatonic", steps: [0,3,5,7,10],               degrees: ["1","♭3","4","5","♭7"],                   formula: "m3 W W m3 W" },

@@ -28,7 +28,7 @@ function renderPianoScales() {
     controls += `<div class="control-group">
       <span class="control-label">${grp.label}</span>
       <div class="control-options">
-        ${grp.keys.map(k => `<button class="control-btn ${pianoScaleState.scale === k ? "active" : ""}" data-ps="scale" data-val="${k}">${SCALES[k].name.replace(/ \(.*\)/, "")}</button>`).join("")}
+        ${grp.keys.map(k => `<button class="control-btn ${pianoScaleState.scale === k ? "active" : ""}" data-ps="scale" data-val="${k}">${SCALES[k].name}</button>`).join("")}
       </div>
     </div>`;
   }
@@ -121,7 +121,7 @@ function renderPianoScales() {
     const nbDegreeMap = {};
     nbDef.steps.forEach((s, i) => { nbDegreeMap[(rootPc + s) % 12] = nbDef.degrees[i]; });
     cards += `<div class="pattern-card">
-      <div class="pattern-name">${pianoScaleState.root} ${nbDef.name.replace(/ \(.*\)/, "")}</div>
+      <div class="pattern-name">${pianoScaleState.root} ${nbDef.name}</div>
       <div class="pattern-desc">${nb.desc}</div>
       ${renderKeyboardSVG({
         startMidi: 48, endMidi: 60,

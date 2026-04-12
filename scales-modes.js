@@ -210,7 +210,7 @@ function renderScalesPage() {
     controls += `<div class="control-group">
       <span class="control-label">${grp.label}</span>
       <div class="control-options">
-        ${grp.keys.map(k => `<button class="control-btn ${scaleState.scale === k ? "active" : ""}" data-sc="scale" data-val="${k}">${SCALES[k].name.replace(/ \(.*\)/, "")}</button>`).join("")}
+        ${grp.keys.map(k => `<button class="control-btn ${scaleState.scale === k ? "active" : ""}" data-sc="scale" data-val="${k}">${SCALES[k].name}</button>`).join("")}
       </div>
     </div>`;
   }
