@@ -311,7 +311,7 @@ function renderPianoCircle() {
   let strip = `<div class="keysig-title" style="margin-bottom:10px">Diatonic chords as keyboard voicings</div><div class="chord-strip">`;
   for (let i = 0; i < diatonic.length; i++) {
     const d = diatonic[i];
-    const notes = buildCloseVoicing(d.pc, d.quality, 0, 60);
+    const notes = buildCloseVoicing(d.pc, d.quality, 0, 48);
     strip += `<div class="chord-strip-card ${i === 0 ? "tonic" : ""}">
       <div class="chord-strip-roman">${d.roman}</div>
       <div class="chord-strip-name">${d.name}</div>
