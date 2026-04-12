@@ -9,21 +9,45 @@ const PCIRC_FLAT  = ["C","D♭","D","E♭","E","F","G♭","G","A♭","A","B♭",
 
 const pianoCircleState = {
   mode: "major",
+  minorType: "relative",  // "relative" | "parallel" when mode === "minor"
   pos: 0,
 };
 
 const pcPosPitch = p => ((p * 7) % 12 + 12) % 12;
-const pcUsesFlats = () => pianoCircleState.pos >= 7;
+
+function pcKeySigPos() {
+  if (pianoCircleState.mode === "minor" && pianoCircleState.minorType === "parallel") {
+    return ((pianoCircleState.pos - 3) % 12 + 12) % 12;
+  }
+  return pianoCircleState.pos;
+}
+const pcUsesFlats = () => pcKeySigPos() >= 7;
 function pcSpell(pc) {
   return (pcUsesFlats() ? PCIRC_FLAT : PCIRC_SHARP)[((pc % 12) + 12) % 12];
 }
 
-function pcTonicPitch() { return pcPosPitch(pianoCircleState.pos); }
+function pcTonicPitch() {
+  if (pianoCircleState.mode === "major") return pcPosPitch(pianoCircleState.pos);
+  if (pianoCircleState.minorType === "parallel") return pcPosPitch(pianoCircleState.pos);
+  return (pcPosPitch(pianoCircleState.pos) + 9) % 12;
+}
 
 function pcKeyTitle() {
-  return pianoCircleState.mode === "major"
-    ? `${PCIRC_MAJ[pianoCircleState.pos]} major`
-    : `${PCIRC_MIN[pianoCircleState.pos].replace("m","")} minor`;
+  if (pianoCircleState.mode === "major") return `${PCIRC_MAJ[pianoCircleState.pos]} major`;
+  if (pianoCircleState.minorType === "parallel") return `${PCIRC_MAJ[pianoCircleState.pos]} minor`;
+  return `${PCIRC_MIN[pianoCircleState.pos].replace("m","")} minor`;
+}
+
+function pcJumpLabel(i) {
+  if (pianoCircleState.mode === "major") return PCIRC_MAJ[i];
+  if (pianoCircleState.minorType === "parallel") return PCIRC_MAJ[i] + "m";
+  return PCIRC_MIN[i];
+}
+
+function pcCenterLabel() {
+  if (pianoCircleState.mode === "major") return PCIRC_MAJ[pianoCircleState.pos];
+  if (pianoCircleState.minorType === "parallel") return PCIRC_MAJ[pianoCircleState.pos] + "m";
+  return PCIRC_MIN[pianoCircleState.pos];
 }
 
 function pcDiatonicChords() {
@@ -114,39 +138,43 @@ function pcWedge(cx, cy, rOuter, rInner, a1, a2) {
 function renderPianoCircleSVG() {
   const cx = 220, cy = 220;
   const rOut = 210, rMid = 145, rIn = 80;
-  const p = pianoCircleState.pos;
   const mode = pianoCircleState.mode;
-  const hiSet = new Set([(p + 11) % 12, p, (p + 1) % 12]);
+  const ksp = pcKeySigPos();
+  const letterPos = pianoCircleState.pos;
+  const hiSet = new Set([(ksp + 11) % 12, ksp, (ksp + 1) % 12]);
 
   const outerRoman = {}, innerRoman = {};
   if (mode === "major") {
-    outerRoman[(p + 11) % 12] = "IV";
-    outerRoman[p]              = "I";
-    outerRoman[(p + 1) % 12]   = "V";
-    innerRoman[(p + 11) % 12]  = "ii";
-    innerRoman[p]              = "vi";
-    innerRoman[(p + 1) % 12]   = "iii";
+    outerRoman[(ksp + 11) % 12] = "IV";
+    outerRoman[ksp]              = "I";
+    outerRoman[(ksp + 1) % 12]   = "V";
+    innerRoman[(ksp + 11) % 12]  = "ii";
+    innerRoman[ksp]              = "vi";
+    innerRoman[(ksp + 1) % 12]   = "iii";
   } else {
-    outerRoman[(p + 11) % 12]  = "VI";
-    outerRoman[p]              = "III";
-    outerRoman[(p + 1) % 12]   = "VII";
-    innerRoman[(p + 11) % 12]  = "iv";
-    innerRoman[p]              = "i";
-    innerRoman[(p + 1) % 12]   = "v";
+    outerRoman[(ksp + 11) % 12]  = "VI";
+    outerRoman[ksp]              = "III";
+    outerRoman[(ksp + 1) % 12]   = "VII";
+    innerRoman[(ksp + 11) % 12]  = "iv";
+    innerRoman[ksp]              = "i";
+    innerRoman[(ksp + 1) % 12]   = "v";
   }
+
+  const outerTonicAt = mode === "major" ? letterPos : -1;
+  const innerTonicAt = mode === "minor" ? ksp : -1;
 
   let svg = `<svg width="440" height="440" viewBox="0 0 440 440" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto;display:block">`;
 
   for (let i = 0; i < 12; i++) {
     const a1 = i * 30 - 15, a2 = i * 30 + 15;
-    const isTonic = mode === "major" && i === p;
+    const isTonic = i === outerTonicAt;
     const inKey = hiSet.has(i);
     const cls = isTonic ? "circle-wedge tonic" : (inKey ? "circle-wedge in-key" : "circle-wedge");
     svg += `<path class="${cls}" d="${pcWedge(cx, cy, rOut, rMid, a1, a2)}"/>`;
   }
   for (let i = 0; i < 12; i++) {
     const a1 = i * 30 - 15, a2 = i * 30 + 15;
-    const isTonic = mode === "minor" && i === p;
+    const isTonic = i === innerTonicAt;
     const inKey = hiSet.has(i);
     const cls = isTonic ? "circle-wedge tonic" : (inKey ? "circle-wedge in-key" : "circle-wedge");
     svg += `<path class="${cls}" d="${pcWedge(cx, cy, rMid, rIn, a1, a2)}"/>`;
@@ -154,7 +182,7 @@ function renderPianoCircleSVG() {
 
   for (let i = 0; i < 12; i++) {
     const [x, y] = pcPolar(cx, cy, (rOut + rMid) / 2, i * 30);
-    const isTonic = mode === "major" && i === p;
+    const isTonic = i === outerTonicAt;
     const inKey = hiSet.has(i);
     const cls = isTonic ? "circle-label tonic" : (inKey ? "circle-label" : "circle-label muted");
     svg += `<text class="${cls}" x="${x.toFixed(2)}" y="${(y + 5).toFixed(2)}" font-size="17">${PCIRC_MAJ[i]}</text>`;
@@ -166,7 +194,7 @@ function renderPianoCircleSVG() {
   }
   for (let i = 0; i < 12; i++) {
     const [x, y] = pcPolar(cx, cy, (rMid + rIn) / 2, i * 30);
-    const isTonic = mode === "minor" && i === p;
+    const isTonic = i === innerTonicAt;
     const inKey = hiSet.has(i);
     const cls = isTonic ? "circle-label tonic" : (inKey ? "circle-label" : "circle-label muted");
     svg += `<text class="${cls}" x="${x.toFixed(2)}" y="${(y + 4).toFixed(2)}" font-size="13">${PCIRC_MIN[i]}</text>`;
@@ -187,8 +215,7 @@ function renderPianoCircleSVG() {
   svg += `<circle cx="${cx}" cy="${cy}" r="${rMid}" fill="none" stroke="var(--border)" stroke-width="1"/>`;
   svg += `<circle cx="${cx}" cy="${cy}" r="${rIn}"  fill="none" stroke="var(--border)" stroke-width="1"/>`;
 
-  const centerKey = mode === "major" ? PCIRC_MAJ[p] : PCIRC_MIN[p];
-  svg += `<text x="${cx}" y="${cy - 4}" text-anchor="middle" font-size="28" font-weight="700" fill="var(--accent)" font-family="'JetBrains Mono', monospace">${centerKey}</text>`;
+  svg += `<text x="${cx}" y="${cy - 4}" text-anchor="middle" font-size="28" font-weight="700" fill="var(--accent)" font-family="'JetBrains Mono', monospace">${pcCenterLabel()}</text>`;
   svg += `<text x="${cx}" y="${cy + 18}" text-anchor="middle" font-size="10" fill="var(--text-muted)" font-family="'JetBrains Mono', monospace" letter-spacing="2">${mode.toUpperCase()}</text>`;
 
   svg += `</svg>`;
@@ -201,6 +228,15 @@ function renderPianoCircle() {
 
   // Controls
   const controls = document.getElementById("circle-controls");
+  const minorTypeRow = pianoCircleState.mode === "minor" ? `
+    <div class="control-group">
+      <span class="control-label">Minor type</span>
+      <div class="control-options">
+        <button class="control-btn ${pianoCircleState.minorType === "relative" ? "active" : ""}" data-pc="minorType" data-val="relative" title="Shares key signature with the major (e.g. C major ↔ A minor)">Relative</button>
+        <button class="control-btn ${pianoCircleState.minorType === "parallel" ? "active" : ""}" data-pc="minorType" data-val="parallel" title="Shares tonic letter with the major (e.g. C major ↔ C minor)">Parallel</button>
+      </div>
+    </div>
+  ` : "";
   controls.innerHTML = `
     <div class="control-group">
       <span class="control-label">Mode</span>
@@ -209,6 +245,7 @@ function renderPianoCircle() {
         <button class="control-btn ${pianoCircleState.mode === "minor" ? "active" : ""}" data-pc="mode" data-val="minor">Minor</button>
       </div>
     </div>
+    ${minorTypeRow}
     <div class="control-group">
       <span class="control-label">Rotate</span>
       <div class="control-options">
@@ -219,10 +256,9 @@ function renderPianoCircle() {
     <div class="control-group">
       <span class="control-label">Jump to key</span>
       <div class="control-options">
-        ${Array.from({length: 12}, (_, i) => {
-          const label = pianoCircleState.mode === "major" ? PCIRC_MAJ[i] : PCIRC_MIN[i];
-          return `<button class="control-btn ${i === pianoCircleState.pos ? "active" : ""}" data-pc="pos" data-val="${i}">${label}</button>`;
-        }).join("")}
+        ${Array.from({length: 12}, (_, i) =>
+          `<button class="control-btn ${i === pianoCircleState.pos ? "active" : ""}" data-pc="pos" data-val="${i}">${pcJumpLabel(i)}</button>`
+        ).join("")}
       </div>
     </div>
   `;
@@ -320,6 +356,7 @@ function renderPianoCircle() {
       const key = btn.dataset.pc;
       const val = btn.dataset.val;
       if (key === "mode") pianoCircleState.mode = val;
+      else if (key === "minorType") pianoCircleState.minorType = val;
       else if (key === "rotate") pianoCircleState.pos = ((pianoCircleState.pos + parseInt(val)) % 12 + 12) % 12;
       else if (key === "pos") pianoCircleState.pos = parseInt(val);
       renderPianoCircle();

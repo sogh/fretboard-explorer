@@ -11,13 +11,24 @@ const COF_FLAT  = ["C","D♭","D","E♭","E","F","G♭","G","A♭","A","B♭","B
 const posPitch = p => ((p * 7) % 12 + 12) % 12;
 
 const circleState = {
-  mode: "major",   // "major" | "minor"
-  pos: 0,          // circle position 0..11
+  mode: "major",          // "major" | "minor"
+  minorType: "relative",  // "relative" | "parallel" (only when mode === "minor")
+  pos: 0,                 // circle position 0..11
 };
 
+// The circle position whose key signature applies:
+//   major: pos itself
+//   relative minor: pos (relative minor shares the major's key signature)
+//   parallel minor: pos - 3 (parallel minor has the key sig of the major 3 steps flatward)
+function keySigPos() {
+  if (circleState.mode === "minor" && circleState.minorType === "parallel") {
+    return ((circleState.pos - 3) % 12 + 12) % 12;
+  }
+  return circleState.pos;
+}
+
 function usesFlats() {
-  // Keys past 6 sharps switch to flats. Position 0=C (natural), 1..6 sharps, 7..11 flats.
-  return circleState.pos >= 7;
+  return keySigPos() >= 7;
 }
 
 function spell(pc) {
@@ -25,12 +36,33 @@ function spell(pc) {
   return arr[((pc % 12) + 12) % 12];
 }
 
-function tonicPitch() { return posPitch(circleState.pos); }
+// Tonic pitch class for the currently selected key.
+function tonicPitch() {
+  if (circleState.mode === "major") return posPitch(circleState.pos);
+  if (circleState.minorType === "parallel") return posPitch(circleState.pos);
+  // relative minor: a minor sixth up from the major tonic
+  return (posPitch(circleState.pos) + 9) % 12;
+}
 
+// Label for the current key (e.g. "A minor", "C minor", "G major").
 function keyTitle() {
-  return circleState.mode === "major"
-    ? `${CIRCLE_MAJ[circleState.pos]} major`
-    : `${CIRCLE_MIN[circleState.pos].replace("m","")} minor`;
+  if (circleState.mode === "major") return `${CIRCLE_MAJ[circleState.pos]} major`;
+  if (circleState.minorType === "parallel") return `${CIRCLE_MAJ[circleState.pos]} minor`;
+  return `${CIRCLE_MIN[circleState.pos].replace("m","")} minor`;
+}
+
+// Jump-to-key button label for circle position `i`.
+function jumpLabel(i) {
+  if (circleState.mode === "major") return CIRCLE_MAJ[i];
+  if (circleState.minorType === "parallel") return CIRCLE_MAJ[i] + "m";
+  return CIRCLE_MIN[i];
+}
+
+// The centered key name in the middle of the wheel.
+function centerLabel() {
+  if (circleState.mode === "major") return CIRCLE_MAJ[circleState.pos];
+  if (circleState.minorType === "parallel") return CIRCLE_MAJ[circleState.pos] + "m";
+  return CIRCLE_MIN[circleState.pos];
 }
 
 // ── Diatonic chords for the current key ────────────────────────────
@@ -125,36 +157,49 @@ function wedgePath(cx, cy, rOuter, rInner, a1, a2) {
 function renderCircleSVG() {
   const cx = 220, cy = 220;
   const rOut = 210, rMid = 145, rIn = 80;
-  const p = circleState.pos;
   const mode = circleState.mode;
+  const ksp = keySigPos();
 
-  // Three highlighted positions (the diatonic slice on the circle)
-  const hiSet = new Set([(p + 11) % 12, p, (p + 1) % 12]);
+  // The tonic letter's position on the outer ring (only used when the tonic
+  // letter corresponds to a major key's position: major mode, or parallel minor).
+  const letterPos = circleState.pos;
 
-  // Map each circle position to its diatonic roman numeral (outer/inner)
+  // Diatonic slice on the circle — always centered around the key signature
+  // position, since that's where the diatonic chords actually sit.
+  const hiSet = new Set([(ksp + 11) % 12, ksp, (ksp + 1) % 12]);
+
+  // Roman numerals on the wheel anchored to the key-signature triad.
   const outerRoman = {}, innerRoman = {};
   if (mode === "major") {
-    outerRoman[(p + 11) % 12] = "IV";
-    outerRoman[p]              = "I";
-    outerRoman[(p + 1) % 12]   = "V";
-    innerRoman[(p + 11) % 12]  = "ii";
-    innerRoman[p]              = "vi";
-    innerRoman[(p + 1) % 12]   = "iii";
+    outerRoman[(ksp + 11) % 12] = "IV";
+    outerRoman[ksp]              = "I";
+    outerRoman[(ksp + 1) % 12]   = "V";
+    innerRoman[(ksp + 11) % 12]  = "ii";
+    innerRoman[ksp]              = "vi";
+    innerRoman[(ksp + 1) % 12]   = "iii";
   } else {
-    outerRoman[(p + 11) % 12]  = "VI";
-    outerRoman[p]              = "III";
-    outerRoman[(p + 1) % 12]   = "VII";
-    innerRoman[(p + 11) % 12]  = "iv";
-    innerRoman[p]              = "i";
-    innerRoman[(p + 1) % 12]   = "v";
+    outerRoman[(ksp + 11) % 12]  = "VI";
+    outerRoman[ksp]              = "III";
+    outerRoman[(ksp + 1) % 12]   = "VII";
+    innerRoman[(ksp + 11) % 12]  = "iv";
+    innerRoman[ksp]              = "i";
+    innerRoman[(ksp + 1) % 12]   = "v";
   }
+
+  // Where to paint the "tonic" emphasis:
+  //  - major: outer ring at the pos letter
+  //  - relative minor: inner ring at pos (Am lives at pos 0 inner)
+  //  - parallel minor: inner ring at ksp (Cm lives on inner ring at pos 9,
+  //    which is E♭ major's relative minor — i.e. C minor)
+  const outerTonicAt = mode === "major" ? letterPos : -1;
+  const innerTonicAt = mode === "minor" ? ksp : -1;
 
   let svg = `<svg width="440" height="440" viewBox="0 0 440 440" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto;display:block">`;
 
   // Wedges (outer ring: majors)
   for (let i = 0; i < 12; i++) {
     const a1 = i * 30 - 15, a2 = i * 30 + 15;
-    const isTonic = mode === "major" && i === p;
+    const isTonic = i === outerTonicAt;
     const inKey = hiSet.has(i);
     const cls = isTonic ? "circle-wedge tonic" : (inKey ? "circle-wedge in-key" : "circle-wedge");
     svg += `<path class="${cls}" d="${wedgePath(cx, cy, rOut, rMid, a1, a2)}"/>`;
@@ -162,7 +207,7 @@ function renderCircleSVG() {
   // Wedges (inner ring: minors)
   for (let i = 0; i < 12; i++) {
     const a1 = i * 30 - 15, a2 = i * 30 + 15;
-    const isTonic = mode === "minor" && i === p;
+    const isTonic = i === innerTonicAt;
     const inKey = hiSet.has(i);
     const cls = isTonic ? "circle-wedge tonic" : (inKey ? "circle-wedge in-key" : "circle-wedge");
     svg += `<path class="${cls}" d="${wedgePath(cx, cy, rMid, rIn, a1, a2)}"/>`;
@@ -171,7 +216,7 @@ function renderCircleSVG() {
   // Labels (outer majors)
   for (let i = 0; i < 12; i++) {
     const [x, y] = polar(cx, cy, (rOut + rMid) / 2, i * 30);
-    const isTonic = mode === "major" && i === p;
+    const isTonic = i === outerTonicAt;
     const inKey = hiSet.has(i);
     const cls = isTonic ? "circle-label tonic" : (inKey ? "circle-label" : "circle-label muted");
     svg += `<text class="${cls}" x="${x.toFixed(2)}" y="${(y + 5).toFixed(2)}" font-size="17">${CIRCLE_MAJ[i]}</text>`;
@@ -184,7 +229,7 @@ function renderCircleSVG() {
   // Labels (inner minors)
   for (let i = 0; i < 12; i++) {
     const [x, y] = polar(cx, cy, (rMid + rIn) / 2, i * 30);
-    const isTonic = mode === "minor" && i === p;
+    const isTonic = i === innerTonicAt;
     const inKey = hiSet.has(i);
     const cls = isTonic ? "circle-label tonic" : (inKey ? "circle-label" : "circle-label muted");
     svg += `<text class="${cls}" x="${x.toFixed(2)}" y="${(y + 4).toFixed(2)}" font-size="13">${CIRCLE_MIN[i]}</text>`;
@@ -208,8 +253,7 @@ function renderCircleSVG() {
   svg += `<circle cx="${cx}" cy="${cy}" r="${rIn}"  fill="none" stroke="var(--border)" stroke-width="1"/>`;
 
   // Center label
-  const centerKey = mode === "major" ? CIRCLE_MAJ[p] : CIRCLE_MIN[p];
-  svg += `<text x="${cx}" y="${cy - 4}" text-anchor="middle" font-size="28" font-weight="700" fill="var(--accent)" font-family="'JetBrains Mono', monospace">${centerKey}</text>`;
+  svg += `<text x="${cx}" y="${cy - 4}" text-anchor="middle" font-size="28" font-weight="700" fill="var(--accent)" font-family="'JetBrains Mono', monospace">${centerLabel()}</text>`;
   svg += `<text x="${cx}" y="${cy + 18}" text-anchor="middle" font-size="10" fill="var(--text-muted)" font-family="'JetBrains Mono', monospace" letter-spacing="2">${mode.toUpperCase()}</text>`;
 
   svg += `</svg>`;
@@ -220,6 +264,15 @@ function renderCircleSVG() {
 function renderCirclePage() {
   // Controls
   const controls = document.getElementById("circle-controls");
+  const minorTypeRow = circleState.mode === "minor" ? `
+    <div class="control-group">
+      <span class="control-label">Minor type</span>
+      <div class="control-options">
+        <button class="control-btn ${circleState.minorType === "relative" ? "active" : ""}" data-cof="minorType" data-val="relative" title="Shares key signature with the major (e.g. C major ↔ A minor)">Relative</button>
+        <button class="control-btn ${circleState.minorType === "parallel" ? "active" : ""}" data-cof="minorType" data-val="parallel" title="Shares tonic letter with the major (e.g. C major ↔ C minor)">Parallel</button>
+      </div>
+    </div>
+  ` : "";
   controls.innerHTML = `
     <div class="control-group">
       <span class="control-label">Mode</span>
@@ -228,6 +281,7 @@ function renderCirclePage() {
         <button class="control-btn ${circleState.mode === "minor" ? "active" : ""}" data-cof="mode" data-val="minor">Minor</button>
       </div>
     </div>
+    ${minorTypeRow}
     <div class="control-group">
       <span class="control-label">Rotate</span>
       <div class="control-options">
@@ -238,10 +292,9 @@ function renderCirclePage() {
     <div class="control-group">
       <span class="control-label">Jump to key</span>
       <div class="control-options">
-        ${Array.from({length: 12}, (_, i) => {
-          const label = circleState.mode === "major" ? CIRCLE_MAJ[i] : CIRCLE_MIN[i];
-          return `<button class="control-btn ${i === circleState.pos ? "active" : ""}" data-cof="pos" data-val="${i}">${label}</button>`;
-        }).join("")}
+        ${Array.from({length: 12}, (_, i) =>
+          `<button class="control-btn ${i === circleState.pos ? "active" : ""}" data-cof="pos" data-val="${i}">${jumpLabel(i)}</button>`
+        ).join("")}
       </div>
     </div>
   `;
@@ -298,6 +351,7 @@ function attachCircleEvents() {
       const key = btn.dataset.cof;
       const val = btn.dataset.val;
       if (key === "mode") circleState.mode = val;
+      else if (key === "minorType") circleState.minorType = val;
       else if (key === "rotate") circleState.pos = ((circleState.pos + parseInt(val)) % 12 + 12) % 12;
       else if (key === "pos") circleState.pos = parseInt(val);
       renderCirclePage();
