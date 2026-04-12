@@ -48,3 +48,61 @@ const ROOT_LABELS = NOTES.map(n => ({
   key: n,
   label: ({"C#":"C♯/D♭","D#":"D♯/E♭","F#":"F♯/G♭","G#":"G♯/A♭","A#":"A♯/B♭"})[n] || n,
 }));
+
+// ── Enharmonic scale spelling ─────────────────────────────────────
+// For diatonic-style 7-note scales we want each natural letter (A–G) to
+// appear exactly once. NOTES[] is sharp-only, so e.g. G Dorian renders
+// A and A♯ instead of A and B♭. spellScale walks the letter cycle from
+// the chosen root and assigns each scale tone the accidental needed to
+// hit its pitch class. For enharmonic roots (C♯/D♭ etc.) it tries the
+// flat-letter alternative too and picks whichever spelling avoids
+// double accidentals.
+const LETTER_PC    = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+const LETTER_ORDER = ["C", "D", "E", "F", "G", "A", "B"];
+const FLAT_ALT_ROOT = { "C#": "D", "D#": "E", "F#": "G", "G#": "A", "A#": "B" };
+
+function spellScale(rootName, steps) {
+  if (!steps || steps.length !== 7) return null;
+  const rootPc = noteIndex(rootName);
+  if (rootPc < 0) return null;
+
+  const candidates = [rootName[0]];
+  if (FLAT_ALT_ROOT[rootName]) candidates.push(FLAT_ALT_ROOT[rootName]);
+
+  let best = null, bestScore = Infinity;
+  for (const rootLetter of candidates) {
+    const rIdx = LETTER_ORDER.indexOf(rootLetter);
+    if (rIdx < 0) continue;
+    const map = {};
+    let score = 0, ok = true;
+    for (let i = 0; i < 7; i++) {
+      const pc = (rootPc + steps[i]) % 12;
+      const letter = LETTER_ORDER[(rIdx + i) % 7];
+      let diff = ((pc - LETTER_PC[letter]) + 12) % 12;
+      if (diff > 6) diff -= 12;
+      let acc;
+      if (diff === 0) acc = "";
+      else if (diff === 1)  { acc = "♯"; score += 1; }
+      else if (diff === -1) { acc = "♭"; score += 1; }
+      else if (diff === 2)  { acc = "𝄪"; score += 100; }
+      else if (diff === -2) { acc = "𝄫"; score += 100; }
+      else { ok = false; break; }
+      map[pc] = letter + acc;
+    }
+    if (ok && score < bestScore) { best = map; bestScore = score; }
+  }
+  return best;
+}
+
+// Spell a single pitch class using a scale map when available, otherwise
+// fall back to the default sharp-named NOTES[].
+function spellNote(pc, map) {
+  if (map && map[pc] != null) return map[pc];
+  return noteName(pc);
+}
+
+// Node-only export hook so the test suite can pull in these helpers.
+// Browsers ignore this because `module` is undefined at global scope.
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = { NOTES, SCALES, noteIndex, noteName, spellScale, spellNote };
+}

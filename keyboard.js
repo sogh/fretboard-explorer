@@ -22,6 +22,7 @@ const KB_DEFAULT_DEGREE_BY_INTERVAL = {
  *   chordNotes           — array of {midi, degree} for an explicit voicing (wins over pcs)
  *   labelMode            — "degree" | "note" | "none"
  *   degreeMap            — optional {pc: label} override for degree labels
+ *   noteNameMap          — optional {pc: spelled-name} for enharmonic-aware note labels
  *   compact              — smaller dimensions (for pattern cards)
  *   showOctaveLabels     — C labels under each octave (default true)
  *   activeRegion         — [startMidi, endMidi] for a soft highlight band
@@ -36,6 +37,7 @@ function renderKeyboardSVG(opts) {
   const chordSet  = opts.chordPcs ? new Set(opts.chordPcs) : null;
   const rootPc    = opts.rootPc != null ? opts.rootPc : null;
   const degreeMap = opts.degreeMap || null;
+  const noteNameMap = opts.noteNameMap || null;
   const showOct   = opts.showOctaveLabels !== false;
   const activeRegion = opts.activeRegion || null;
 
@@ -73,12 +75,12 @@ function renderKeyboardSVG(opts) {
 
   function labelFor(pc) {
     if (labelMode === "none") return "";
-    if (labelMode === "note") return noteName(pc);
+    if (labelMode === "note") return spellNote(pc, noteNameMap);
     if (degreeMap && degreeMap[pc] != null) return degreeMap[pc];
     if (rootPc != null) {
       return KB_DEFAULT_DEGREE_BY_INTERVAL[((pc - rootPc + 12) % 12)] || "";
     }
-    return noteName(pc);
+    return spellNote(pc, noteNameMap);
   }
 
   function classify(midi, pc) {

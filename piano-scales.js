@@ -14,6 +14,8 @@ function renderPianoScales() {
   const rootPc = noteIndex(pianoScaleState.root);
   const def = SCALES[pianoScaleState.scale];
   const scalePcs = def.steps.map(s => (rootPc + s) % 12);
+  const noteNameMap = spellScale(pianoScaleState.root, def.steps);
+  const rootDisplay = noteNameMap ? noteNameMap[rootPc] : pianoScaleState.root;
 
   // ── Controls ──
   let controls = "";
@@ -65,14 +67,14 @@ function renderPianoScales() {
   const degreeMap = {};
   def.steps.forEach((s, i) => { degreeMap[(rootPc + s) % 12] = def.degrees[i]; });
 
-  let mainTitle = `<span class="chord-name">${pianoScaleState.root} ${def.name}</span>`;
+  let mainTitle = `<span class="chord-name">${rootDisplay} ${def.name}</span>`;
   mainTitle += `<span class="formula-tag">${def.formula}</span>`;
   mainTitle += `<span class="inv-tag">${def.steps.length} notes</span>`;
 
   const scaleTones = scalePcs.map((pc, i) => `
     <span class="scale-tone">
       <span class="scale-tone-deg">${def.degrees[i]}</span>
-      <span class="scale-tone-note">${noteName(pc)}</span>
+      <span class="scale-tone-note">${spellNote(pc, noteNameMap)}</span>
     </span>`).join("");
 
   const stepBracket = `<div class="step-bracket">${stepLabels.map(s => `<span>${s}</span>`).join("")}</div>`;
@@ -87,7 +89,7 @@ function renderPianoScales() {
           startMidi, endMidi,
           scalePcs, rootPc,
           labelMode: pianoScaleState.labelMode,
-          degreeMap,
+          degreeMap, noteNameMap,
         })}
       </div>
     </div>
@@ -108,7 +110,7 @@ function renderPianoScales() {
         startMidi: s, endMidi: e,
         scalePcs, rootPc,
         labelMode: pianoScaleState.labelMode,
-        degreeMap, compact: true,
+        degreeMap, noteNameMap, compact: true,
       })}
     </div>`;
   }
@@ -120,14 +122,16 @@ function renderPianoScales() {
     const nbPcs = nbDef.steps.map(s => (rootPc + s) % 12);
     const nbDegreeMap = {};
     nbDef.steps.forEach((s, i) => { nbDegreeMap[(rootPc + s) % 12] = nbDef.degrees[i]; });
+    const nbNoteMap = spellScale(pianoScaleState.root, nbDef.steps);
+    const nbRootDisplay = nbNoteMap ? nbNoteMap[rootPc] : pianoScaleState.root;
     cards += `<div class="pattern-card">
-      <div class="pattern-name">${pianoScaleState.root} ${nbDef.name}</div>
+      <div class="pattern-name">${nbRootDisplay} ${nbDef.name}</div>
       <div class="pattern-desc">${nb.desc}</div>
       ${renderKeyboardSVG({
         startMidi: 48, endMidi: 60,
         scalePcs: nbPcs, rootPc,
         labelMode: pianoScaleState.labelMode,
-        degreeMap: nbDegreeMap, compact: true,
+        degreeMap: nbDegreeMap, noteNameMap: nbNoteMap, compact: true,
       })}
     </div>`;
   }

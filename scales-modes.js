@@ -91,6 +91,7 @@ function renderScaleFretboard(scalePcs, rootPc, fretRange, opts) {
   const labelMode = opts.labelMode || "degree";
   const scaleKey = opts.scaleKey || scaleState.scale;
   const highlightWindow = opts.highlightWindow || null;
+  const noteNameMap = opts.noteNameMap || null;
 
   const [startFret, endFret] = fretRange;
   const numFrets = endFret - startFret;
@@ -168,7 +169,7 @@ function renderScaleFretboard(scalePcs, rootPc, fretRange, opts) {
       const cx = lp + fi * fs + fs / 2;
       const cy = tp + si * ss;
       const idx = stepList.indexOf((pc - rootPc + 12) % 12);
-      const label = labelMode === "note" ? noteName(pc) : (degreeList[idx] || "");
+      const label = labelMode === "note" ? spellNote(pc, noteNameMap) : (degreeList[idx] || "");
 
       if (isRoot) {
         svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--triad-fill)" stroke="var(--triad-stroke)" stroke-width="2"/>`;
@@ -189,6 +190,8 @@ function renderScalesPage() {
   const rootPc = noteIndex(scaleState.root);
   const def = SCALES[scaleState.scale];
   const scalePcs = def.steps.map(s => (rootPc + s) % 12);
+  const noteNameMap = spellScale(scaleState.root, def.steps);
+  const rootDisplay = noteNameMap ? noteNameMap[rootPc] : scaleState.root;
 
   // Resolve position system. 3NPS only works for 7-note scales; fall back to CAGED.
   const threeNPS = compute3NPSPositions(rootPc, def.steps);
@@ -241,10 +244,10 @@ function renderScalesPage() {
 
   const scaleNotesList = scalePcs.map((pc, i) => {
     const deg = def.degrees[i];
-    return `<span class="scale-tone"><span class="scale-tone-deg">${deg}</span><span class="scale-tone-note">${noteName(pc)}</span></span>`;
+    return `<span class="scale-tone"><span class="scale-tone-deg">${deg}</span><span class="scale-tone-note">${spellNote(pc, noteNameMap)}</span></span>`;
   }).join("");
 
-  let mainTitle = `<span class="chord-name">${scaleState.root} ${def.name}</span>`;
+  let mainTitle = `<span class="chord-name">${rootDisplay} ${def.name}</span>`;
   mainTitle += `<span class="inv-tag">${def.formula}</span>`;
   mainTitle += `<span class="inv-tag">${def.steps.length} notes</span>`;
 
@@ -252,7 +255,7 @@ function renderScalesPage() {
     <div class="main-fretboard">
       <div class="main-title">${mainTitle}</div>
       <div class="scale-tones">${scaleNotesList}</div>
-      ${renderScaleFretboard(scalePcs, rootPc, fullRange, { labelMode: scaleState.labelMode, highlightWindow: highlight })}
+      ${renderScaleFretboard(scalePcs, rootPc, fullRange, { labelMode: scaleState.labelMode, highlightWindow: highlight, noteNameMap })}
     </div>
   `;
 
@@ -269,7 +272,7 @@ function renderScalesPage() {
   let cards = "";
   positions.forEach((p, i) => {
     const sel = scaleState.position === i ? "selected" : "";
-    const cardOpts = { compact: true, labelMode: scaleState.labelMode };
+    const cardOpts = { compact: true, labelMode: scaleState.labelMode, noteNameMap };
     if (use3NPS) cardOpts.specificNotes = p.notes;
     cards += `<div class="pattern-card ${sel}" data-sc-card="${i}">
       <div class="pattern-name">${p.label}</div>

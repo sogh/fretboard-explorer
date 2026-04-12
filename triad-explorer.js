@@ -83,6 +83,16 @@ const MODES = [
   { name: "Locrian",    steps: [0,1,3,5,6,8,10], desc: "Mode 7 — diminished" },
 ];
 
+// Build an enharmonic spelling map for a pattern when it's a 7-note scale.
+// Returns null for chords (3-4 notes) and non-heptatonic scales (pentatonic,
+// blues, etc.) — those fall back to NOTES[] sharp spellings.
+function patternSpelling(pattern) {
+  if (!pattern || !pattern.notes || pattern.notes.length !== 7) return null;
+  const rootPc = pattern.notes[0];
+  const steps = pattern.notes.map(n => (n - rootPc + 12) % 12);
+  return spellScale(noteName(rootPc), steps);
+}
+
 function generatePatterns(root, quality, family) {
   const ri = noteIndex(root);
   const ii = (ri + 2) % 12, iii = (ri + 4) % 12;
@@ -182,7 +192,7 @@ function computeFretRange(triadPositions, totalFrets) {
   return [start, end];
 }
 
-function renderFretboardSVG(triadPositions, patternNotes, fretRange, compact, ghostPositions) {
+function renderFretboardSVG(triadPositions, patternNotes, fretRange, compact, ghostPositions, patternSpellingMap) {
   const [startFret, endFret] = fretRange;
   const numFrets = endFret - startFret;
   const ss = compact ? 20 : 20;   // string spacing
@@ -272,11 +282,11 @@ function renderFretboardSVG(triadPositions, patternNotes, fretRange, compact, gh
           svg += `<circle cx="${cx - offset}" cy="${cy}" r="${smallR}" fill="var(--triad-fill)" stroke="var(--triad-stroke)" stroke-width="1.5"/>`;
           svg += `<text x="${cx - offset}" y="${cy + (compact ? 3 : 3.5)}" text-anchor="middle" font-size="${compact ? 7 : 8}" fill="var(--triad-text)" font-weight="700" font-family="monospace">${t.degree}</text>`;
           svg += `<circle cx="${cx + offset}" cy="${cy}" r="${smallR - 1}" fill="var(--pattern-note)" opacity="0.7"/>`;
-          svg += `<text x="${cx + offset}" y="${cy + 3}" text-anchor="middle" font-size="${compact ? 6 : 7}" fill="var(--pattern-text)" font-family="monospace" font-weight="500">${noteName(noteAtFret)}</text>`;
+          svg += `<text x="${cx + offset}" y="${cy + 3}" text-anchor="middle" font-size="${compact ? 6 : 7}" fill="var(--pattern-text)" font-family="monospace" font-weight="500">${spellNote(noteAtFret, patternSpellingMap)}</text>`;
         } else {
           // Pattern only
           svg += `<circle cx="${cx}" cy="${cy}" r="${dotRadius - 2}" fill="var(--pattern-note)" opacity="0.6"/>`;
-          svg += `<text x="${cx}" y="${cy + 3}" text-anchor="middle" font-size="${compact ? 7 : 8}" fill="var(--pattern-text)" font-family="monospace" font-weight="500">${noteName(noteAtFret)}</text>`;
+          svg += `<text x="${cx}" y="${cy + 3}" text-anchor="middle" font-size="${compact ? 7 : 8}" fill="var(--pattern-text)" font-family="monospace" font-weight="500">${spellNote(noteAtFret, patternSpellingMap)}</text>`;
         }
       }
     }
@@ -403,6 +413,7 @@ function render() {
   const fretRange = computeFretRange(voicing, 11);
   const activePattern = selectedPattern !== null ? patterns[selectedPattern] : null;
   const activeNotes = activePattern ? activePattern.notes : null;
+  const activeSpellingMap = activePattern ? patternSpelling(activePattern) : null;
 
   // Compute ghost voicings from other inversions on the same string group
   const ghostPositions = [];
@@ -424,7 +435,7 @@ function render() {
     mainTitle += `<span class="inv-tag" style="border-color:var(--pattern-note);color:var(--pattern-note)">+ ${activePattern.name}</span>`;
   }
   document.getElementById("main-board").innerHTML =
-    `<div class="main-fretboard"><div class="main-title">${mainTitle}</div>${renderFretboardSVG(voicing, activeNotes, fretRange, false, ghostPositions)}</div>`;
+    `<div class="main-fretboard"><div class="main-title">${mainTitle}</div>${renderFretboardSVG(voicing, activeNotes, fretRange, false, ghostPositions, activeSpellingMap)}</div>`;
 
   // Pattern header with category tabs
   let tabsHtml = `<span class="patterns-label">Related patterns</span><div class="pattern-tabs">`;
@@ -439,11 +450,12 @@ function render() {
   patterns.forEach((p, i) => {
     if (state.patternCategory !== "all" && p.category !== state.patternCategory) return;
     const sel = selectedPattern === i ? "selected" : "";
+    const pMap = patternSpelling(p);
     cards += `<div class="pattern-card ${sel}" data-pattern="${i}">
       <div class="pattern-name">${p.name}</div>
       <div class="pattern-desc">${p.desc}</div>
-      ${renderFretboardSVG(voicing, p.notes, fretRange, true)}
-      <div class="pattern-notes-list">${p.notes.map(n => noteName(n)).join(" · ")}</div>
+      ${renderFretboardSVG(voicing, p.notes, fretRange, true, null, pMap)}
+      <div class="pattern-notes-list">${p.notes.map(n => spellNote(n, pMap)).join(" · ")}</div>
     </div>`;
   });
   document.getElementById("patterns").innerHTML = cards;
