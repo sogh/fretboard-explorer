@@ -1,8 +1,7 @@
-// ── Guitar-specific constants ───────────────────────────────────────
+// ── Fretboard constants ─────────────────────────────────────────────
 // Music theory (NOTES, noteIndex, noteName, CHORD_INTERVALS) comes from theory.js.
-const STANDARD_TUNING = [4, 11, 7, 2, 9, 4]; // E B G D A E
-const STRING_NAMES = ["E","B","G","D","A","E"];
-const NUM_FRETS = 15;
+// Tuning and fret count come from instruments.js via getInstrument() so the
+// same renderers serve guitar, bass, ukulele, banjo, and mandolin.
 
 // ── Triad logic ─────────────────────────────────────────────────────
 function getTriadNotes(root, quality, inversion) {
@@ -27,6 +26,7 @@ function getTriadDegreeLabels(quality, inversion) {
 }
 
 function findVoicingOnStrings(root, quality, inversion, startStringIdx) {
+  const inst = getInstrument();
   const chordTones = getTriadNotes(root, quality, inversion);
   const labels = getTriadDegreeLabels(quality, inversion);
   const n = chordTones.length;
@@ -34,12 +34,16 @@ function findVoicingOnStrings(root, quality, inversion, startStringIdx) {
 
   for (let i = 0; i < n; i++) {
     const strIdx = startStringIdx + i;
-    if (strIdx >= 6) return null;
-    const openNote = STANDARD_TUNING[strIdx];
+    if (strIdx >= inst.tuning.length) return null;
+    const openNote = inst.tuning[strIdx];
     const target = chordTones[n - 1 - i];
-    const baseFret = ((target - openNote) % 12 + 12) % 12;
+    let baseFret = ((target - openNote) % 12 + 12) % 12;
+    // Respect per-string minimum fret (e.g. banjo's drone string starts at 5).
+    const minFret = inst.stringMinFret && inst.stringMinFret[strIdx] != null ? inst.stringMinFret[strIdx] : 0;
+    while (baseFret < minFret) baseFret += 12;
     const frets = [];
-    for (let f = baseFret; f <= NUM_FRETS; f += 12) frets.push(f);
+    for (let f = baseFret; f <= inst.numFrets; f += 12) frets.push(f);
+    if (!frets.length) return null;
     candidates.push({ strIdx, frets, target, degree: labels[n - 1 - i] });
   }
 
@@ -188,11 +192,14 @@ function computeFretRange(triadPositions, totalFrets) {
   let end = start + totalFrets;
   // Clamp to valid range
   if (start < -1) { start = -1; end = start + totalFrets; }
-  if (end > NUM_FRETS) { end = NUM_FRETS; start = end - totalFrets; }
+  const maxFret = getInstrument().numFrets;
+  if (end > maxFret) { end = maxFret; start = end - totalFrets; }
   return [start, end];
 }
 
 function renderFretboardSVG(triadPositions, patternNotes, fretRange, compact, ghostPositions, patternSpellingMap) {
+  const inst = getInstrument();
+  const numStrings = inst.tuning.length;
   const [startFret, endFret] = fretRange;
   const numFrets = endFret - startFret;
   const ss = compact ? 20 : 20;   // string spacing
@@ -200,36 +207,43 @@ function renderFretboardSVG(triadPositions, patternNotes, fretRange, compact, gh
   const tp = compact ? 22 : 24;   // top padding
   const lp = compact ? 14 : 14;   // left padding
   const w = lp + numFrets * fs + 20;
-  const h = tp + 5 * ss + 20;
+  const h = tp + (numStrings - 1) * ss + 20;
   const dotRadius = compact ? 9 : 9;
   const fretDots = [3, 5, 7, 9, 12, 15];
+  const midString = (numStrings - 1) / 2;
 
   let svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">`;
 
-  // Fret position dots
+  // Fret position dots — double at the octave, single elsewhere.
   for (const d of fretDots) {
     if (d < startFret + 1 || d > endFret) continue;
     const x = lp + (d - startFret - 1) * fs + fs / 2;
     if (d === 12) {
-      svg += `<circle cx="${x}" cy="${tp + 1.5 * ss}" r="3" fill="var(--dot-muted)" opacity="0.4"/>`;
-      svg += `<circle cx="${x}" cy="${tp + 3.5 * ss}" r="3" fill="var(--dot-muted)" opacity="0.4"/>`;
+      svg += `<circle cx="${x}" cy="${tp + (midString - 1) * ss}" r="3" fill="var(--dot-muted)" opacity="0.4"/>`;
+      svg += `<circle cx="${x}" cy="${tp + (midString + 1) * ss}" r="3" fill="var(--dot-muted)" opacity="0.4"/>`;
     } else {
-      svg += `<circle cx="${x}" cy="${tp + 2.5 * ss}" r="3" fill="var(--dot-muted)" opacity="0.3"/>`;
+      svg += `<circle cx="${x}" cy="${tp + midString * ss}" r="3" fill="var(--dot-muted)" opacity="0.3"/>`;
     }
   }
 
-  // Fret lines
+  // Fret lines span the full string stack.
   for (let i = 0; i <= numFrets; i++) {
     const x = lp + i * fs;
     const fretNum = startFret + i;
     const isNut = fretNum === 0;
-    svg += `<line x1="${x}" y1="${tp}" x2="${x}" y2="${tp + 5 * ss}" stroke="var(--fret-color)" stroke-width="${isNut ? 3 : 1}" opacity="${isNut ? 0.8 : 0.3}"/>`;
+    svg += `<line x1="${x}" y1="${tp}" x2="${x}" y2="${tp + (numStrings - 1) * ss}" stroke="var(--fret-color)" stroke-width="${isNut ? 3 : 1}" opacity="${isNut ? 0.8 : 0.3}"/>`;
   }
 
-  // Strings
-  for (let i = 0; i < 6; i++) {
+  // Strings — truncate any with a per-string minimum fret (banjo drone).
+  for (let i = 0; i < numStrings; i++) {
     const y = tp + i * ss;
-    svg += `<line x1="${lp}" y1="${y}" x2="${lp + numFrets * fs}" y2="${y}" stroke="var(--string-color)" stroke-width="${(1 + i * 0.3).toFixed(1)}" opacity="0.5"/>`;
+    const minFret = inst.stringMinFret && inst.stringMinFret[i] != null ? inst.stringMinFret[i] : 0;
+    // Start X at whichever is larger: the visible fretboard left edge, or the string's actual nut.
+    const stringStartFret = Math.max(startFret, minFret);
+    if (stringStartFret > endFret) continue;
+    const x1 = lp + (stringStartFret - startFret) * fs;
+    const x2 = lp + numFrets * fs;
+    svg += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="var(--string-color)" stroke-width="${(1 + i * 0.3).toFixed(1)}" opacity="0.5"/>`;
   }
 
   // Fret numbers
@@ -265,11 +279,12 @@ function renderFretboardSVG(triadPositions, patternNotes, fretRange, compact, gh
 
   // Pattern + overlap notes
   if (patternSet) {
-    for (let si = 0; si < 6; si++) {
+    for (let si = 0; si < numStrings; si++) {
       for (let fi = 0; fi < numFrets; fi++) {
         const fret = startFret + fi + 1;
-        if (fret < 0 || fret > NUM_FRETS) continue;
-        const noteAtFret = (STANDARD_TUNING[si] + fret) % 12;
+        if (fret < 0 || fret > inst.numFrets) continue;
+        if (!fretPositionPlayable(si, fret)) continue;
+        const noteAtFret = (inst.tuning[si] + fret) % 12;
         if (!patternSet.has(noteAtFret)) continue;
 
         const key = `${si}-${fret}`;
@@ -294,7 +309,7 @@ function renderFretboardSVG(triadPositions, patternNotes, fretRange, compact, gh
 
   // Triad-only notes (not overlapping with pattern)
   triadPositions.filter(p => p.fret >= startFret && p.fret <= endFret).forEach(p => {
-    const noteAtFret = (STANDARD_TUNING[p.string] + p.fret) % 12;
+    const noteAtFret = (inst.tuning[p.string] + p.fret) % 12;
     if (patternSet && patternSet.has(noteAtFret)) return;
     const fi = p.fret - startFret - 1;
     const cx = lp + fi * fs + fs / 2;
@@ -332,17 +347,6 @@ for (const fam of Object.values(FAMILY_QUALITIES))
 
 const TRIAD_INVERSIONS = ["Root position", "1st inversion", "2nd inversion"];
 const SEVENTH_INVERSIONS = ["Root position", "1st inversion", "2nd inversion", "3rd inversion"];
-const TRIAD_STRING_GROUPS = [
-  { label: "E-B-G", idx: 0 },
-  { label: "B-G-D", idx: 1 },
-  { label: "G-D-A", idx: 2 },
-  { label: "D-A-E", idx: 3 },
-];
-const SEVENTH_STRING_GROUPS = [
-  { label: "E-B-G-D", idx: 0 },
-  { label: "B-G-D-A", idx: 1 },
-  { label: "G-D-A-E", idx: 2 },
-];
 
 const PATTERN_TABS = [
   { key: "all", label: "All" },
@@ -362,10 +366,14 @@ const state = {
 };
 
 function render() {
-  const { root, family, quality, inversion, stringGroup, selectedPattern } = state;
+  const inst = getInstrument();
+  const { root, family, quality, inversion, selectedPattern } = state;
   const is7th = family === "7th";
   const inversions = is7th ? SEVENTH_INVERSIONS : TRIAD_INVERSIONS;
-  const stringGroups = is7th ? SEVENTH_STRING_GROUPS : TRIAD_STRING_GROUPS;
+  const stringGroups = is7th ? inst.seventhGroups : inst.triadGroups;
+  // Clamp string-group index in case we just switched to an instrument with fewer groups.
+  if (state.stringGroup >= stringGroups.length) state.stringGroup = 0;
+  const stringGroup = state.stringGroup;
   const qualities = FAMILY_QUALITIES[family];
   const sg = stringGroups[stringGroup];
   const voicing = findVoicingOnStrings(root, quality, inversion, sg.idx);

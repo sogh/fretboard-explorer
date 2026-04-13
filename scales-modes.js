@@ -1,6 +1,8 @@
-// ── Scales & Modes page (guitar) ────────────────────────────────────
+// ── Scales & Modes page (fretted instruments) ──────────────────────
 // SCALES, SCALE_GROUPS, NOTES, noteIndex, noteName come from theory.js.
-// STANDARD_TUNING, NUM_FRETS come from triad-explorer.js.
+// Tuning, string count, and fret range come from instruments.js via
+// getInstrument() — the same renderer serves guitar, bass, uke, banjo,
+// and mandolin.
 
 const SCALES_ROOTS = ROOT_LABELS;
 
@@ -12,13 +14,16 @@ const scaleState = {
   position: -1,            // -1 = full neck; 0..N-1 = specific position card
 };
 
-// MIDI pitches of open strings, high-E to low-E (matches STANDARD_TUNING order)
-const OPEN_STRING_MIDI = [64, 59, 55, 50, 45, 40];
+// Standard 6-string guitar MIDI, used only for 3NPS (which is a guitar-only
+// concept). Kept private to this module; the renderer relies on
+// getInstrument().tuning for pitch-class lookups instead.
+const GUITAR_OPEN_STRING_MIDI = [64, 59, 55, 50, 45, 40];
 
-// ── 3-notes-per-string positions (heptatonic scales only) ─────────
+// ── 3-notes-per-string positions (standard 6-string guitar + heptatonic only) ─
 function compute3NPSPositions(rootPc, steps) {
   if (steps.length !== 7) return null;
-  const lowE = OPEN_STRING_MIDI[5]; // 40
+  if (currentInstrumentKey !== "guitar") return null;
+  const lowE = GUITAR_OPEN_STRING_MIDI[5]; // 40
 
   // Build an ascending list of absolute scale pitches covering the fretboard
   const abs = [];
@@ -41,11 +46,11 @@ function compute3NPSPositions(rootPc, steps) {
     let valid = true;
     let idx = startIdx;
     for (let s = 5; s >= 0; s--) {
-      const openMidi = OPEN_STRING_MIDI[s];
+      const openMidi = GUITAR_OPEN_STRING_MIDI[s];
       for (let k = 0; k < 3; k++) {
         if (idx >= abs.length) { valid = false; break; }
         const fret = abs[idx] - openMidi;
-        if (fret < 0 || fret > NUM_FRETS) { valid = false; break; }
+        if (fret < 0 || fret > 15) { valid = false; break; }
         notes.push({ string: s, fret });
         idx++;
       }
@@ -65,9 +70,12 @@ function compute3NPSPositions(rootPc, steps) {
 
 // ── Position windows (CAGED-style 5-fret slices across the neck) ───
 function computeScalePositions(rootPc) {
-  // Fret on the low-E string where the root first appears (0..11)
-  const fL = ((rootPc - 4) % 12 + 12) % 12;
-  // CAGED-style offsets: E, D, C, A, G shape starts relative to root-on-low-E
+  const inst = getInstrument();
+  const maxFret = inst.numFrets;
+  // Fret on the lowest string where the root first appears (0..11).
+  const lowStringPc = inst.tuning[inst.tuning.length - 1];
+  const fL = ((rootPc - lowStringPc) % 12 + 12) % 12;
+  // CAGED-style offsets: E, D, C, A, G shape starts relative to root-on-lowest
   const offsets = [-1, 2, 4, 7, 9];
   const positions = offsets.map((off, i) => {
     let start = fL + off;
@@ -76,7 +84,7 @@ function computeScalePositions(rootPc) {
     while (start > 11) start -= 12;
     let end = start + 4;
     // If window exceeds neck, shift down an octave
-    if (end > NUM_FRETS) { start -= 12; end -= 12; }
+    if (end > maxFret) { start -= 12; end -= 12; }
     if (start < 0) { start = 0; end = 4; }
     return { label: `Position ${i + 1}`, start, end };
   });
@@ -87,6 +95,8 @@ function computeScalePositions(rootPc) {
 // ── Fretboard renderer (scale-specific) ────────────────────────────
 function renderScaleFretboard(scalePcs, rootPc, fretRange, opts) {
   opts = opts || {};
+  const inst = getInstrument();
+  const numStrings = inst.tuning.length;
   const compact = !!opts.compact;
   const labelMode = opts.labelMode || "degree";
   const scaleKey = opts.scaleKey || scaleState.scale;
@@ -100,11 +110,12 @@ function renderScaleFretboard(scalePcs, rootPc, fretRange, opts) {
   const tp = compact ? 20 : 24;
   const lp = 14;
   const w = lp + numFrets * fs + 20;
-  const h = tp + 5 * ss + 20;
+  const h = tp + (numStrings - 1) * ss + 20;
   const r = compact ? 8 : 10;
   const fretDots = [3, 5, 7, 9, 12, 15];
   const degreeList = SCALES[scaleKey].degrees;
   const stepList = SCALES[scaleKey].steps;
+  const midString = (numStrings - 1) / 2;
 
   let svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">`;
 
@@ -116,7 +127,7 @@ function renderScaleFretboard(scalePcs, rootPc, fretRange, opts) {
     if (rightLine > leftLine) {
       const x1 = lp + leftLine * fs;
       const x2 = lp + rightLine * fs;
-      svg += `<rect x="${x1}" y="${tp - 2}" width="${x2 - x1}" height="${5 * ss + 4}" fill="var(--accent)" opacity="0.10"/>`;
+      svg += `<rect x="${x1}" y="${tp - 2}" width="${x2 - x1}" height="${(numStrings - 1) * ss + 4}" fill="var(--accent)" opacity="0.10"/>`;
     }
   }
 
@@ -125,10 +136,10 @@ function renderScaleFretboard(scalePcs, rootPc, fretRange, opts) {
     if (d < startFret + 1 || d > endFret) continue;
     const x = lp + (d - startFret - 1) * fs + fs / 2;
     if (d === 12) {
-      svg += `<circle cx="${x}" cy="${tp + 1.5 * ss}" r="3" fill="var(--dot-muted)" opacity="0.4"/>`;
-      svg += `<circle cx="${x}" cy="${tp + 3.5 * ss}" r="3" fill="var(--dot-muted)" opacity="0.4"/>`;
+      svg += `<circle cx="${x}" cy="${tp + (midString - 1) * ss}" r="3" fill="var(--dot-muted)" opacity="0.4"/>`;
+      svg += `<circle cx="${x}" cy="${tp + (midString + 1) * ss}" r="3" fill="var(--dot-muted)" opacity="0.4"/>`;
     } else {
-      svg += `<circle cx="${x}" cy="${tp + 2.5 * ss}" r="3" fill="var(--dot-muted)" opacity="0.3"/>`;
+      svg += `<circle cx="${x}" cy="${tp + midString * ss}" r="3" fill="var(--dot-muted)" opacity="0.3"/>`;
     }
   }
 
@@ -137,13 +148,18 @@ function renderScaleFretboard(scalePcs, rootPc, fretRange, opts) {
     const x = lp + i * fs;
     const fretNum = startFret + i;
     const isNut = fretNum === 0;
-    svg += `<line x1="${x}" y1="${tp}" x2="${x}" y2="${tp + 5 * ss}" stroke="var(--fret-color)" stroke-width="${isNut ? 3 : 1}" opacity="${isNut ? 0.8 : 0.3}"/>`;
+    svg += `<line x1="${x}" y1="${tp}" x2="${x}" y2="${tp + (numStrings - 1) * ss}" stroke="var(--fret-color)" stroke-width="${isNut ? 3 : 1}" opacity="${isNut ? 0.8 : 0.3}"/>`;
   }
 
-  // Strings
-  for (let i = 0; i < 6; i++) {
+  // Strings — truncate any with a per-string minimum fret (banjo drone).
+  for (let i = 0; i < numStrings; i++) {
     const y = tp + i * ss;
-    svg += `<line x1="${lp}" y1="${y}" x2="${lp + numFrets * fs}" y2="${y}" stroke="var(--string-color)" stroke-width="${(1 + i * 0.3).toFixed(1)}" opacity="0.5"/>`;
+    const minFret = inst.stringMinFret && inst.stringMinFret[i] != null ? inst.stringMinFret[i] : 0;
+    const stringStartFret = Math.max(startFret, minFret);
+    if (stringStartFret > endFret) continue;
+    const x1 = lp + (stringStartFret - startFret) * fs;
+    const x2 = lp + numFrets * fs;
+    svg += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="var(--string-color)" stroke-width="${(1 + i * 0.3).toFixed(1)}" opacity="0.5"/>`;
   }
 
   // Fret numbers
@@ -158,11 +174,12 @@ function renderScaleFretboard(scalePcs, rootPc, fretRange, opts) {
   const specificSet = opts.specificNotes
     ? new Set(opts.specificNotes.map(n => `${n.string}-${n.fret}`))
     : null;
-  for (let si = 0; si < 6; si++) {
+  for (let si = 0; si < numStrings; si++) {
     for (let fi = 0; fi < numFrets; fi++) {
       const fret = startFret + fi + 1;
-      if (fret < 0 || fret > NUM_FRETS) continue;
-      const pc = (STANDARD_TUNING[si] + fret) % 12;
+      if (fret < 0 || fret > inst.numFrets) continue;
+      if (!fretPositionPlayable(si, fret)) continue;
+      const pc = (inst.tuning[si] + fret) % 12;
       if (!scaleSet.has(pc)) continue;
       if (specificSet && !specificSet.has(`${si}-${fret}`)) continue;
       const isRoot = pc === rootPc;
@@ -230,14 +247,14 @@ function renderScalesPage() {
     <span class="control-label">Position system</span>
     <div class="control-options">
       <button class="control-btn ${scaleState.system === "caged" ? "active" : ""}" data-sc="system" data-val="caged">CAGED (5)</button>
-      <button class="control-btn ${scaleState.system === "3nps" ? "active" : ""} ${threeNPSAvailable ? "" : "disabled"}" data-sc="system" data-val="3nps" ${threeNPSAvailable ? "" : "disabled"} title="${threeNPSAvailable ? "3 notes per string" : "Only for 7-note scales"}">3NPS (7)</button>
+      <button class="control-btn ${scaleState.system === "3nps" ? "active" : ""} ${threeNPSAvailable ? "" : "disabled"}" data-sc="system" data-val="3nps" ${threeNPSAvailable ? "" : "disabled"} title="${threeNPSAvailable ? "3 notes per string" : "Guitar-only; needs 6 strings and a 7-note scale"}">3NPS (7)</button>
     </div>
   </div>`;
 
   document.getElementById("scales-controls").innerHTML = controls;
 
   // Main full-neck fretboard (startFret is exclusive — [0, 15] shows frets 1–15)
-  const fullRange = [0, NUM_FRETS];
+  const fullRange = [0, getInstrument().numFrets];
   const highlight = scaleState.position >= 0 && scaleState.position < positions.length
     ? [positions[scaleState.position].start, positions[scaleState.position].end]
     : null;

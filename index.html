@@ -141,6 +141,8 @@ svg { width: 100%; height: auto; display: block; }
 </head>
 <body>
 
+<nav id="instrument-nav" class="page-nav no-print"></nav>
+
 <nav id="page-nav" class="page-nav no-print">
   <button class="nav-btn active" data-page="fretboard">Triads</button>
   <button class="nav-btn" data-page="circle">Circle of Fifths</button>
@@ -173,6 +175,7 @@ svg { width: 100%; height: auto; display: block; }
 </div>
 
 <script src="theory.js"></script>
+<script src="instruments.js"></script>
 <script src="triad-explorer.js"></script>
 <script src="circle-of-fifths.js"></script>
 <script src="scales-modes.js"></script>
@@ -187,6 +190,25 @@ svg { width: 100%; height: auto; display: block; }
       Object.entries(pages).forEach(([k, el]) => { el.hidden = k !== p; });
     };
   });
+
+  // Instrument picker — re-renders the Triads and Scales pages on change.
+  // Circle of Fifths is pitch-class only, no fretboard, so no re-render.
+  const instNav = document.getElementById("instrument-nav");
+  const paintInstrumentNav = () => {
+    instNav.innerHTML = Object.entries(INSTRUMENTS).map(([key, inst]) =>
+      `<button class="nav-btn ${currentInstrumentKey === key ? "active" : ""}" data-instrument="${key}">${inst.name}</button>`
+    ).join("");
+    instNav.querySelectorAll(".nav-btn").forEach(btn => {
+      btn.onclick = () => {
+        currentInstrumentKey = btn.dataset.instrument;
+        state.selectedPattern = null;  // string groups differ between instruments
+        paintInstrumentNav();
+        render();            // Triads page
+        renderScalesPage();  // Scales & Modes page
+      };
+    });
+  };
+  paintInstrumentNav();
 })();
 </script>
 </body>

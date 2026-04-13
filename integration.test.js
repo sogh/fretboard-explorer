@@ -20,25 +20,38 @@ function run(test) {
 
   const ctx = { document, console, module: {} };
   vm.createContext(ctx);
+  const instrumentKey = test.instrument || "guitar";
 
   // Order matters — match index.html. Append an explicit globalThis export
   // because `const`/`let` declarations in vm-run scripts don't leak to the
   // context object (only `var` does).
   const exposes = {
-    "theory.js":        ["spellScale", "spellNote", "SCALES", "noteIndex"],
-    "triad-explorer.js": ["STANDARD_TUNING", "NUM_FRETS"],
+    "theory.js":         ["spellScale", "spellNote", "SCALES", "noteIndex"],
+    "instruments.js":    ["INSTRUMENTS", "getInstrument", "fretPositionPlayable"],
+    "triad-explorer.js": ["state", "render"],
     "scales-modes.js":   ["scaleState", "renderScalesPage"],
   };
   for (const [file, names] of Object.entries(exposes)) {
     let src = fs.readFileSync(path.join(__dirname, file), "utf8");
+    // Re-assign currentInstrumentKey each run so tests can swap instruments.
+    if (file === "instruments.js") names.push(..."currentInstrumentKey".split(" "));
     src += "\n" + names.map(n => `globalThis.${n} = ${n};`).join("\n");
+    // Let tests mutate currentInstrumentKey via a setter.
+    if (file === "instruments.js") {
+      src += `\nglobalThis.setInstrument = k => { currentInstrumentKey = k; };`;
+    }
     vm.runInContext(src, ctx, { filename: file });
   }
 
-  // Drive the state and re-render.
+  // Drive state and re-render for the requested instrument.
+  ctx.setInstrument(instrumentKey);
+  ctx.state.selectedPattern = null;
+  ctx.state.stringGroup = 0;
   ctx.scaleState.root = test.root;
   ctx.scaleState.scale = test.scale;
   ctx.scaleState.labelMode = "note";
+  ctx.scaleState.position = -1;
+  ctx.render();
   ctx.renderScalesPage();
 
   return html;
@@ -72,6 +85,46 @@ for (const m of dorianNoteLists) {
   const letters = notes.map(n => n[0]);
   const unique = new Set(letters);
   expect(unique.size === 7, `7-note scale has distinct letters: ${inner}`);
+}
+
+// ── Instrument-swap smoke tests ────────────────────────────────────
+// Each fretted instrument should render G Dorian on the Scales page without
+// crashing, should produce the expected number of string lines in the SVG,
+// and should still honour the enharmonic fix (no A# next to A).
+const stringCounts = {
+  guitar: 6, bass: 4, ukulele: 4, banjo5: 5, banjoTenor: 4, mandolin: 4,
+};
+for (const [key, expectedStrings] of Object.entries(stringCounts)) {
+  console.log(`\nInstrument smoke — ${key} @ G Dorian:`);
+  const outI = run({ root: "G", scale: "dorian", instrument: key });
+  const mainSvg = outI["scales-main"] || "";
+  const stringLines = (mainSvg.match(/stroke="var\(--string-color\)"/g) || []).length;
+  expect(stringLines === expectedStrings,
+    `main fretboard has ${expectedStrings} string lines (got ${stringLines})`);
+  // Only check the Scales page output — the Triads page may legitimately show
+  // A♯ in a ♭III chord pattern label (3-note chord, not a 7-note scale, so
+  // spellScale doesn't apply). The scale renderer itself should be clean.
+  expect(!/>A#</.test(mainSvg) && !/>A♯</.test(mainSvg),
+    `no A♯ in scale fretboard for ${key}`);
+}
+
+// ── Banjo drone-string: no scale notes on frets 0–4 of string index 4 ──
+console.log("\nBanjo 5-string drone — G major:");
+{
+  const outB = run({ root: "G", scale: "ionian", instrument: "banjo5" });
+  const mainSvg = outB["scales-main"] || "";
+  // On 5 strings with spacing 22 and tp 24, string index 4 is at y = 24 + 4*22 = 112.
+  // Find scale-note circles at that y and confirm none are on frets 1–4
+  // (i.e. x positions corresponding to the first 4 frets).
+  const droneDots = mainSvg.match(/<circle cx="[^"]+" cy="112" r="[89]"[^/]+fill="var\(--[^"]+"/g) || [];
+  // We just need to know none of them are in the first ~100px (which covers frets 0–4 at fs=38).
+  // lp=14, fs=38 → fret 5 center ≈ lp + 4*fs + fs/2 = 14 + 152 + 19 = 185.
+  const earlyDots = droneDots.filter(d => {
+    const cx = parseFloat(d.match(/cx="([\d.]+)"/)[1]);
+    return cx < 185;
+  });
+  expect(earlyDots.length === 0,
+    `drone string (string 4) has no scale-note circles below fret 5 (got ${earlyDots.length})`);
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
