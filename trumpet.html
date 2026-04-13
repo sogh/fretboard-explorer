@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Trumpet Theory Toolbox</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+:root {
+  --bg: #0a0a0f; --surface: #13131a; --surface-hover: #1a1a24;
+  --border: #2a2a3a; --text: #e0e0e8; --text-muted: #6a6a7a; --text-dim: #4a4a5a;
+  --accent: #5a7aff; --accent-glow: rgba(90,122,255,0.15);
+  --triad-fill: #5a7aff; --triad-stroke: #8aa0ff; --triad-text: #fff;
+  --pattern-note: #cc8800; --pattern-text: #fff;
+  --tag-bg: #1a1a28; --tag-border: #2a2a3a;
+  --selected-bg: rgba(90,122,255,0.12); --selected-border: #5a7aff;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; padding: 20px 16px; }
+
+.page-nav { display: flex; gap: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 2px; margin-bottom: 20px; width: fit-content; }
+.nav-btn {
+  padding: 8px 18px; border: none; background: transparent; color: var(--text-muted);
+  font-family: inherit; font-size: 12px; font-weight: 500; cursor: pointer;
+  border-radius: 4px; transition: all 0.15s; text-transform: uppercase; letter-spacing: 1.5px;
+}
+.nav-btn:hover { color: var(--text); background: var(--surface-hover); }
+.nav-btn.active { color: var(--accent); background: var(--accent-glow); }
+.nav-btn.switch { color: var(--text-dim); }
+.nav-btn.switch:hover { color: var(--text); }
+
+.controls { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.control-group { display: flex; flex-direction: column; gap: 4px; }
+.control-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); font-weight: 500; }
+.control-options { display: flex; gap: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 2px; }
+.control-btn {
+  padding: 6px 10px; border: none; background: transparent; color: var(--text-muted);
+  font-family: inherit; font-size: 11px; font-weight: 500; cursor: pointer;
+  border-radius: 4px; transition: all 0.15s; white-space: nowrap;
+}
+.control-btn:hover { color: var(--text); background: var(--surface-hover); }
+.control-btn.active { color: var(--accent); background: var(--accent-glow); }
+
+.main-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 24px; }
+.main-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.chord-name { color: var(--accent); font-size: 15px; }
+.inv-tag { font-size: 9px; padding: 2px 6px; background: var(--tag-bg); border: 1px solid var(--tag-border); border-radius: 3px; color: var(--text-muted); font-weight: 400; }
+.formula-tag { font-size: 11px; padding: 2px 8px; background: var(--tag-bg); border: 1px solid var(--tag-border); border-radius: 3px; color: var(--text); font-weight: 500; letter-spacing: 2px; }
+
+.scale-tones { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.scale-tone { display: inline-flex; align-items: baseline; gap: 4px; padding: 3px 8px; background: var(--tag-bg); border: 1px solid var(--tag-border); border-radius: 4px; }
+.scale-tone-deg { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.scale-tone-note { font-size: 12px; font-weight: 600; color: var(--text); }
+
+.transpose-hint { font-size: 11px; color: var(--text-muted); line-height: 1.5; padding-top: 8px; border-top: 1px solid var(--border); }
+.transpose-hint strong { color: var(--text); font-weight: 600; }
+
+.pattern-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.patterns-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); font-weight: 500; }
+.patterns-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+.pattern-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
+
+.trumpet-card { display: flex; flex-direction: column; gap: 10px; align-items: center; text-align: center; }
+.trumpet-card-head { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.trumpet-read { font-size: 22px; font-weight: 700; color: var(--accent); }
+.trumpet-card-foot { display: flex; flex-direction: column; gap: 2px; font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.5; }
+.trumpet-read-desc { display: none; } /* redundant with the big label */
+.trumpet-sounds { color: var(--text-dim); }
+
+svg { display: block; }
+</style>
+</head>
+<body>
+
+<nav id="page-nav" class="page-nav">
+  <button class="nav-btn active" data-page="scales">Scales &amp; Modes</button>
+  <a class="nav-btn switch" href="index.html" style="text-decoration:none">→ Guitar</a>
+  <a class="nav-btn switch" href="piano.html" style="text-decoration:none">→ Piano</a>
+</nav>
+
+<div id="page-scales" class="page">
+  <div id="scales-controls" class="controls"></div>
+  <div id="scales-main"></div>
+  <div id="scales-info" class="pattern-header"></div>
+  <div id="scales-positions" class="patterns-grid"></div>
+</div>
+
+<script src="theory.js"></script>
+<script src="fingering.js"></script>
+<script src="trumpet.js"></script>
+</body>
+</html>
