@@ -88,7 +88,7 @@ console.log("\nScales page — G Dorian, concert view:");
   const firstCard = cards.match(/<div class="pattern-card trumpet-card">[\s\S]*?<\/div>\s*<\/div>/);
   expect(firstCard, "found a trumpet card");
   expect(firstCard && />A</.test(firstCard[0]), "first card reads A (written for concert G)");
-  expect(firstCard && /sounds G/.test(firstCard[0]), "first card sounds G (concert)");
+  expect(firstCard && /sounds<\/span>\s*<span class="trumpet-sounds-note">G</.test(firstCard[0]), "first card sounds G (concert)");
   // All seven scale tones should produce cards.
   const cardCount = (cards.match(/<div class="pattern-card trumpet-card">/g) || []).length;
   expect(cardCount === 7, `seven scale-tone cards (got ${cardCount})`);

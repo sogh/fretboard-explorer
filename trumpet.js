@@ -122,8 +122,8 @@ function renderTrumpetScales() {
       </div>
       ${renderFingeringSVG(fingering)}
       <div class="trumpet-card-foot">
-        <span class="trumpet-read-desc">reads ${readLabel}</span>
-        <span class="trumpet-sounds">sounds ${concertLabel}</span>
+        <span class="trumpet-sounds-label">sounds</span>
+        <span class="trumpet-sounds-note">${concertLabel}</span>
       </div>
     </div>`;
   }
