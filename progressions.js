@@ -108,7 +108,37 @@ function resolveChord(sym, tonicPc, mode) {
     name = letter + glyph + rest;
   }
 
-  return { roman: sym, name, pc };
+  // Collapse the parsed (triad quality, extension) pair into a single
+  // CHORD_INTERVALS key so the voicing explorer can look the chord up
+  // without re-parsing its displayed name.
+  const q = chordQualityKey(quality, rest);
+  return { roman: sym, name, pc, q };
+}
+
+function chordQualityKey(quality, rest) {
+  if (quality === "hdim") return "m7b5";
+  if (rest === "") {
+    if (quality === "maj") return "major";
+    if (quality === "min") return "minor";
+    if (quality === "dim") return "dim";
+    if (quality === "aug") return "aug";
+  }
+  if (rest === "7") {
+    if (quality === "maj") return "dom7";
+    if (quality === "min") return "min7";
+    if (quality === "dim") return "dim7";
+  }
+  if (rest === "maj7") {
+    if (quality === "maj") return "maj7";
+    if (quality === "min") return "mM7";
+  }
+  // Unknown extension — fall back to the triad quality so the explorer
+  // still has something useful to show.
+  if (quality === "maj") return "major";
+  if (quality === "min") return "minor";
+  if (quality === "dim") return "dim";
+  if (quality === "aug") return "aug";
+  return "major";
 }
 
 // ── Progression catalogue ──────────────────────────────────────────
@@ -374,7 +404,7 @@ function renderProgressionsPage() {
       const steps = chords.map(c => `
         <div class="prog-step">
           <div class="prog-roman">${c.roman}</div>
-          <div class="prog-chord">${c.name}</div>
+          <div class="prog-chord"><span class="chord-link" data-chord-root="${c.pc}" data-chord-quality="${c.q}" data-chord-name="${c.name}" title="Explore voicings of ${c.name}">${c.name}</span></div>
         </div>
       `).join('<div class="prog-sep">→</div>');
       return `

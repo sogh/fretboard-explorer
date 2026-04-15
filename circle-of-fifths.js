@@ -66,27 +66,30 @@ function centerLabel() {
 }
 
 // ── Diatonic chords for the current key ────────────────────────────
+// Each record carries `q`, the CHORD_INTERVALS key, so the chord voicing
+// explorer knows what quality to build voicings for when its chord name
+// is clicked.
 function diatonicChords() {
   const t = tonicPitch();
   if (circleState.mode === "major") {
     return [
-      { roman: "I",    name: spell(t),                 pc: t },
-      { roman: "ii",   name: spell((t+2)%12) + "m",    pc: (t+2)%12 },
-      { roman: "iii",  name: spell((t+4)%12) + "m",    pc: (t+4)%12 },
-      { roman: "IV",   name: spell((t+5)%12),          pc: (t+5)%12 },
-      { roman: "V",    name: spell((t+7)%12),          pc: (t+7)%12 },
-      { roman: "vi",   name: spell((t+9)%12) + "m",    pc: (t+9)%12 },
-      { roman: "vii°", name: spell((t+11)%12) + "°",   pc: (t+11)%12 },
+      { roman: "I",    name: spell(t),                 pc: t,          q: "major" },
+      { roman: "ii",   name: spell((t+2)%12) + "m",    pc: (t+2)%12,   q: "minor" },
+      { roman: "iii",  name: spell((t+4)%12) + "m",    pc: (t+4)%12,   q: "minor" },
+      { roman: "IV",   name: spell((t+5)%12),          pc: (t+5)%12,   q: "major" },
+      { roman: "V",    name: spell((t+7)%12),          pc: (t+7)%12,   q: "major" },
+      { roman: "vi",   name: spell((t+9)%12) + "m",    pc: (t+9)%12,   q: "minor" },
+      { roman: "vii°", name: spell((t+11)%12) + "°",   pc: (t+11)%12,  q: "dim" },
     ];
   }
   return [
-    { roman: "i",    name: spell(t) + "m",            pc: t },
-    { roman: "ii°",  name: spell((t+2)%12) + "°",     pc: (t+2)%12 },
-    { roman: "III",  name: spell((t+3)%12),           pc: (t+3)%12 },
-    { roman: "iv",   name: spell((t+5)%12) + "m",     pc: (t+5)%12 },
-    { roman: "v",    name: spell((t+7)%12) + "m",     pc: (t+7)%12 },
-    { roman: "VI",   name: spell((t+8)%12),           pc: (t+8)%12 },
-    { roman: "VII",  name: spell((t+10)%12),          pc: (t+10)%12 },
+    { roman: "i",    name: spell(t) + "m",            pc: t,          q: "minor" },
+    { roman: "ii°",  name: spell((t+2)%12) + "°",     pc: (t+2)%12,   q: "dim" },
+    { roman: "III",  name: spell((t+3)%12),           pc: (t+3)%12,   q: "major" },
+    { roman: "iv",   name: spell((t+5)%12) + "m",     pc: (t+5)%12,   q: "minor" },
+    { roman: "v",    name: spell((t+7)%12) + "m",     pc: (t+7)%12,   q: "minor" },
+    { roman: "VI",   name: spell((t+8)%12),           pc: (t+8)%12,   q: "major" },
+    { roman: "VII",  name: spell((t+10)%12),          pc: (t+10)%12,  q: "major" },
   ];
 }
 
@@ -96,41 +99,41 @@ function borrowedCategories() {
   const sd = [], par = [], med = [];
 
   if (circleState.mode === "major") {
-    sd.push({ roman: "V7/ii",  name: spell((t+9)%12)  + "7", desc: `→ ${spell((t+2)%12)}m` });
-    sd.push({ roman: "V7/iii", name: spell((t+11)%12) + "7", desc: `→ ${spell((t+4)%12)}m` });
-    sd.push({ roman: "V7/IV",  name: spell(t)          + "7", desc: `→ ${spell((t+5)%12)}` });
-    sd.push({ roman: "V7/V",   name: spell((t+2)%12)  + "7", desc: `→ ${spell((t+7)%12)}` });
-    sd.push({ roman: "V7/vi",  name: spell((t+4)%12)  + "7", desc: `→ ${spell((t+9)%12)}m` });
+    sd.push({ roman: "V7/ii",  name: spell((t+9)%12)  + "7", pc: (t+9)%12,  q: "dom7", desc: `→ ${spell((t+2)%12)}m` });
+    sd.push({ roman: "V7/iii", name: spell((t+11)%12) + "7", pc: (t+11)%12, q: "dom7", desc: `→ ${spell((t+4)%12)}m` });
+    sd.push({ roman: "V7/IV",  name: spell(t)          + "7", pc: t,          q: "dom7", desc: `→ ${spell((t+5)%12)}` });
+    sd.push({ roman: "V7/V",   name: spell((t+2)%12)  + "7", pc: (t+2)%12,  q: "dom7", desc: `→ ${spell((t+7)%12)}` });
+    sd.push({ roman: "V7/vi",  name: spell((t+4)%12)  + "7", pc: (t+4)%12,  q: "dom7", desc: `→ ${spell((t+9)%12)}m` });
 
-    par.push({ roman: "iv",    name: spell((t+5)%12)  + "m",  desc: "minor four" });
-    par.push({ roman: "v",     name: spell((t+7)%12)  + "m",  desc: "minor five" });
-    par.push({ roman: "♭III",  name: spell((t+3)%12),          desc: "flat three" });
-    par.push({ roman: "♭VI",   name: spell((t+8)%12),          desc: "flat six" });
-    par.push({ roman: "♭VII",  name: spell((t+10)%12),         desc: "flat seven" });
-    par.push({ roman: "ii°",   name: spell((t+2)%12)  + "°",   desc: "diminished two" });
+    par.push({ roman: "iv",    name: spell((t+5)%12)  + "m",  pc: (t+5)%12,  q: "minor", desc: "minor four" });
+    par.push({ roman: "v",     name: spell((t+7)%12)  + "m",  pc: (t+7)%12,  q: "minor", desc: "minor five" });
+    par.push({ roman: "♭III",  name: spell((t+3)%12),          pc: (t+3)%12,  q: "major", desc: "flat three" });
+    par.push({ roman: "♭VI",   name: spell((t+8)%12),          pc: (t+8)%12,  q: "major", desc: "flat six" });
+    par.push({ roman: "♭VII",  name: spell((t+10)%12),         pc: (t+10)%12, q: "major", desc: "flat seven" });
+    par.push({ roman: "ii°",   name: spell((t+2)%12)  + "°",   pc: (t+2)%12,  q: "dim",   desc: "diminished two" });
 
-    med.push({ roman: "III",   name: spell((t+4)%12),          desc: "major III (altered iii)" });
-    med.push({ roman: "♭III",  name: spell((t+3)%12),          desc: "minor third up" });
-    med.push({ roman: "VI",    name: spell((t+9)%12),          desc: "major VI (altered vi)" });
-    med.push({ roman: "♭VI",   name: spell((t+8)%12),          desc: "minor sixth up" });
+    med.push({ roman: "III",   name: spell((t+4)%12),          pc: (t+4)%12,  q: "major", desc: "major III (altered iii)" });
+    med.push({ roman: "♭III",  name: spell((t+3)%12),          pc: (t+3)%12,  q: "major", desc: "minor third up" });
+    med.push({ roman: "VI",    name: spell((t+9)%12),          pc: (t+9)%12,  q: "major", desc: "major VI (altered vi)" });
+    med.push({ roman: "♭VI",   name: spell((t+8)%12),          pc: (t+8)%12,  q: "major", desc: "minor sixth up" });
   } else {
-    sd.push({ roman: "V7/III", name: spell((t+10)%12) + "7", desc: `→ ${spell((t+3)%12)}` });
-    sd.push({ roman: "V7/iv",  name: spell(t)          + "7", desc: `→ ${spell((t+5)%12)}m` });
-    sd.push({ roman: "V7/V",   name: spell((t+2)%12)  + "7", desc: `→ ${spell((t+7)%12)}` });
-    sd.push({ roman: "V7/VI",  name: spell((t+3)%12)  + "7", desc: `→ ${spell((t+8)%12)}` });
-    sd.push({ roman: "V7/VII", name: spell((t+5)%12)  + "7", desc: `→ ${spell((t+10)%12)}` });
+    sd.push({ roman: "V7/III", name: spell((t+10)%12) + "7", pc: (t+10)%12, q: "dom7", desc: `→ ${spell((t+3)%12)}` });
+    sd.push({ roman: "V7/iv",  name: spell(t)          + "7", pc: t,          q: "dom7", desc: `→ ${spell((t+5)%12)}m` });
+    sd.push({ roman: "V7/V",   name: spell((t+2)%12)  + "7", pc: (t+2)%12,  q: "dom7", desc: `→ ${spell((t+7)%12)}` });
+    sd.push({ roman: "V7/VI",  name: spell((t+3)%12)  + "7", pc: (t+3)%12,  q: "dom7", desc: `→ ${spell((t+8)%12)}` });
+    sd.push({ roman: "V7/VII", name: spell((t+5)%12)  + "7", pc: (t+5)%12,  q: "dom7", desc: `→ ${spell((t+10)%12)}` });
 
-    par.push({ roman: "I",     name: spell(t),                 desc: "Picardy third" });
-    par.push({ roman: "IV",    name: spell((t+5)%12),          desc: "major four" });
-    par.push({ roman: "V",     name: spell((t+7)%12),          desc: "major five" });
-    par.push({ roman: "ii",    name: spell((t+2)%12)  + "m",   desc: "minor two" });
-    par.push({ roman: "vi",    name: spell((t+9)%12)  + "m",   desc: "raised six" });
-    par.push({ roman: "vii°",  name: spell((t+11)%12) + "°",   desc: "leading-tone dim" });
+    par.push({ roman: "I",     name: spell(t),                 pc: t,          q: "major", desc: "Picardy third" });
+    par.push({ roman: "IV",    name: spell((t+5)%12),          pc: (t+5)%12,  q: "major", desc: "major four" });
+    par.push({ roman: "V",     name: spell((t+7)%12),          pc: (t+7)%12,  q: "major", desc: "major five" });
+    par.push({ roman: "ii",    name: spell((t+2)%12)  + "m",   pc: (t+2)%12,  q: "minor", desc: "minor two" });
+    par.push({ roman: "vi",    name: spell((t+9)%12)  + "m",   pc: (t+9)%12,  q: "minor", desc: "raised six" });
+    par.push({ roman: "vii°",  name: spell((t+11)%12) + "°",   pc: (t+11)%12, q: "dim",   desc: "leading-tone dim" });
 
-    med.push({ roman: "♭II",   name: spell((t+1)%12),          desc: "Neapolitan" });
-    med.push({ roman: "♭v",    name: spell((t+6)%12) + "m",    desc: "tritone minor" });
-    med.push({ roman: "III+",  name: spell((t+3)%12) + "+",    desc: "augmented III" });
-    med.push({ roman: "♭vi",   name: spell((t+8)%12) + "m",    desc: "minor sixth up" });
+    med.push({ roman: "♭II",   name: spell((t+1)%12),          pc: (t+1)%12,  q: "major", desc: "Neapolitan" });
+    med.push({ roman: "♭v",    name: spell((t+6)%12) + "m",    pc: (t+6)%12,  q: "minor", desc: "tritone minor" });
+    med.push({ roman: "III+",  name: spell((t+3)%12) + "+",    pc: (t+3)%12,  q: "aug",   desc: "augmented III" });
+    med.push({ roman: "♭vi",   name: spell((t+8)%12) + "m",    pc: (t+8)%12,  q: "minor", desc: "minor sixth up" });
   }
   return { sd, par, med };
 }
@@ -302,6 +305,11 @@ function renderCirclePage() {
   // Circle SVG
   document.getElementById("circle-svg").innerHTML = renderCircleSVG();
 
+  // Helper: wrap a chord spelling in a .chord-link so clicking it opens
+  // the voicing explorer. The data attributes carry the pitch class and
+  // quality the explorer needs to build voicings from scratch.
+  const chordLink = (chord) => `<span class="chord-link" data-chord-root="${chord.pc}" data-chord-quality="${chord.q}" data-chord-name="${chord.name}" title="Explore voicings of ${chord.name}">${chord.name}</span>`;
+
   // Diatonic chord list panel
   const diatonic = diatonicChords();
   const info = document.getElementById("circle-info");
@@ -314,7 +322,7 @@ function renderCirclePage() {
       ${diatonic.map((d, i) => `
         <div class="diatonic-chord ${i === 0 ? "tonic" : ""}">
           <div class="diatonic-roman">${d.roman}</div>
-          <div class="diatonic-name">${d.name}</div>
+          <div class="diatonic-name">${chordLink(d)}</div>
         </div>
       `).join("")}
     </div>
@@ -330,7 +338,7 @@ function renderCirclePage() {
         ${items.map(c => `
           <div class="borrow-card">
             <div class="borrow-roman">${c.roman}</div>
-            <div class="borrow-name">${c.name}</div>
+            <div class="borrow-name">${chordLink(c)}</div>
             <div class="borrow-desc">${c.desc}</div>
           </div>
         `).join("")}

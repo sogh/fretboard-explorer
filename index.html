@@ -162,6 +162,86 @@ svg { width: 100%; height: auto; display: block; }
   .pattern-tabs { display: none; }
 }
 @media not print { .print-only { display: none; } }
+
+/* ── Chord Voicing Explorer (shared modal) ──────────────────────── */
+.chord-link {
+  cursor: pointer;
+  border-bottom: 1px dashed var(--accent);
+  padding-bottom: 1px;
+  transition: color 0.15s;
+  color: inherit;
+}
+.chord-link:hover { color: var(--accent); }
+
+#chord-explorer {
+  position: fixed; inset: 0; z-index: 50;
+  display: none;
+  background: rgba(4, 4, 10, 0.72);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  padding: 4vh 4vw;
+  overflow: auto;
+}
+#chord-explorer.open { display: block; }
+.chord-explorer-panel {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px 24px 24px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+.chord-explorer-head {
+  display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.chord-explorer-title {
+  font-size: 26px; font-weight: 700; color: var(--accent);
+}
+.chord-explorer-sub {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted);
+}
+.chord-explorer-notes { font-size: 12px; color: var(--text); }
+.chord-explorer-notes .n-sep { color: var(--text-dim); margin: 0 4px; }
+.chord-explorer-close {
+  margin-left: auto;
+  background: var(--surface); color: var(--text-muted);
+  border: 1px solid var(--border); border-radius: 6px;
+  font-family: inherit; font-size: 11px; font-weight: 500;
+  padding: 6px 12px; cursor: pointer; transition: all 0.15s;
+  text-transform: uppercase; letter-spacing: 1.2px;
+}
+.chord-explorer-close:hover { color: var(--text); border-color: var(--accent); }
+.chord-explorer-close .k { opacity: 0.6; margin-left: 6px; font-size: 10px; }
+.chord-explorer-instrument { font-size: 10px; color: var(--text-muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1.5px; }
+.chord-explorer-instrument strong { color: var(--text); font-weight: 600; }
+.chord-explorer-empty { padding: 40px; text-align: center; color: var(--text-muted); font-size: 12px; }
+.chord-explorer-section-title {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted);
+  font-weight: 500; margin: 18px 0 8px;
+  padding-top: 12px; border-top: 1px solid var(--border);
+}
+.chord-explorer-section-title:first-of-type { border-top: none; padding-top: 0; margin-top: 4px; }
+.chord-explorer-section-title .section-sub { color: var(--text-dim); letter-spacing: 1px; margin-left: 6px; font-weight: 400; }
+.chord-explorer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px;
+}
+.voicing-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+}
+.voicing-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+.voicing-inv { font-size: 12px; font-weight: 600; color: var(--text); }
+.voicing-strings { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+.voicing-degrees { font-size: 10px; color: var(--text-dim); margin-top: 4px; letter-spacing: 0.5px; }
+.voicing-degrees strong { color: var(--pattern-note); font-weight: 600; letter-spacing: 0; }
+
+@media print { #chord-explorer { display: none !important; } }
 </style>
 </head>
 <body>
@@ -207,9 +287,12 @@ svg { width: 100%; height: auto; display: block; }
   <div id="scales-positions" class="patterns-grid"></div>
 </div>
 
+<div id="chord-explorer" class="no-print" role="dialog" aria-modal="true" aria-hidden="true"></div>
+
 <script src="theory.js"></script>
 <script src="instruments.js"></script>
 <script src="triad-explorer.js"></script>
+<script src="chord-explorer.js"></script>
 <script src="circle-of-fifths.js"></script>
 <script src="progressions.js"></script>
 <script src="scales-modes.js"></script>
