@@ -115,6 +115,31 @@ svg { width: 100%; height: auto; display: block; }
   .borrow-card { border: 1px solid #ccc; break-inside: avoid; }
 }
 
+/* ── Progressions page ──────────────────────────────────────────── */
+.prog-genre-row { flex-wrap: wrap; max-width: 680px; }
+.prog-header { display: flex; flex-direction: column; gap: 2px; margin-bottom: 16px; }
+.prog-key-title { font-size: 24px; font-weight: 700; color: var(--accent); }
+.prog-key-sub { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; }
+.prog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; }
+.prog-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
+.prog-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.prog-desc { font-size: 10px; color: var(--text-muted); margin-bottom: 10px; letter-spacing: 0.3px; }
+.prog-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.prog-step {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 6px 10px; min-width: 54px;
+  background: var(--tag-bg); border: 1px solid var(--tag-border); border-radius: 4px;
+}
+.prog-roman { font-size: 10px; font-weight: 500; color: var(--pattern-note); letter-spacing: 0.5px; }
+.prog-chord { font-size: 14px; font-weight: 600; color: var(--text); }
+.prog-sep { font-size: 11px; color: var(--text-dim); padding: 0 2px; }
+.prog-empty { font-size: 12px; color: var(--text-muted); padding: 20px; text-align: center; }
+
+@media print {
+  .prog-card { border: 1px solid #ccc; break-inside: avoid; }
+  .prog-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
 @media print {
   :root {
     --bg: #fff; --surface: #fff; --surface-hover: #fff; --border: #ccc;
@@ -146,6 +171,7 @@ svg { width: 100%; height: auto; display: block; }
 <nav id="page-nav" class="page-nav no-print">
   <button class="nav-btn active" data-page="fretboard">Triads</button>
   <button class="nav-btn" data-page="circle">Circle of Fifths</button>
+  <button class="nav-btn" data-page="progressions">Progressions</button>
   <button class="nav-btn" data-page="scales">Scales &amp; Modes</button>
   <a class="nav-btn switch" href="piano.html" style="text-decoration:none">→ Piano</a>
   <a class="nav-btn switch" href="trumpet.html" style="text-decoration:none">→ Trumpet</a>
@@ -168,6 +194,12 @@ svg { width: 100%; height: auto; display: block; }
   <div id="borrowed-sections"></div>
 </div>
 
+<div id="page-progressions" class="page" hidden>
+  <div id="prog-controls" class="controls no-print"></div>
+  <div id="prog-header" class="prog-header"></div>
+  <div id="prog-grid" class="prog-grid"></div>
+</div>
+
 <div id="page-scales" class="page" hidden>
   <div id="scales-controls" class="controls no-print"></div>
   <div id="scales-main"></div>
@@ -179,10 +211,11 @@ svg { width: 100%; height: auto; display: block; }
 <script src="instruments.js"></script>
 <script src="triad-explorer.js"></script>
 <script src="circle-of-fifths.js"></script>
+<script src="progressions.js"></script>
 <script src="scales-modes.js"></script>
 <script>
 (function(){
-  const pageIds = ["fretboard", "circle", "scales"];
+  const pageIds = ["fretboard", "circle", "progressions", "scales"];
   const pages = Object.fromEntries(pageIds.map(id => [id, document.getElementById(`page-${id}`)]));
   document.querySelectorAll("#page-nav .nav-btn").forEach(btn => {
     btn.onclick = () => {
