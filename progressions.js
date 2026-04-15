@@ -121,7 +121,7 @@ const PROGRESSIONS = {
     name: "Pop",
     progressions: [
       { mode: "major", name: "The Axis",           desc: "I–V–vi–IV — countless pop hits",        nums: ["I","V","vi","IV"] },
-      { mode: "major", name: "Sensitive Female",   desc: "vi–IV–I–V — Axis rotation",             nums: ["vi","IV","I","V"] },
+      { mode: "major", name: "Axis Rotation",      desc: "vi–IV–I–V — Axis starting on vi",       nums: ["vi","IV","I","V"] },
       { mode: "major", name: "50s Doo-Wop",        desc: "I–vi–IV–V — Stand By Me vibe",          nums: ["I","vi","IV","V"] },
       { mode: "major", name: "Pachelbel Loop",     desc: "I–V–vi–iii–IV–I–IV–V",                  nums: ["I","V","vi","iii","IV","I","IV","V"] },
       { mode: "major", name: "Three-Chord Pop",    desc: "I–IV–V — the original hook",            nums: ["I","IV","V"] },
