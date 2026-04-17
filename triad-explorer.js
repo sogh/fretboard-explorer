@@ -104,29 +104,41 @@ function generatePatterns(root, quality, family) {
   const vi = (ri + 9) % 12, vii = (ri + 11) % 12;
   const patterns = [];
 
+  // Compose a chord-type pattern with the metadata the chord voicing
+  // explorer needs (rootPc + quality + short spelling for the modal
+  // title) while still carrying the verbose `chordText` the pattern
+  // card shows inline.
+  const chordPat = (roman, rootPc, q, chordText, shortSpelling, desc, category) => ({
+    name: `${roman} — ${chordText}`,
+    roman, chordText,
+    chord: { rootPc, quality: q, spelling: shortSpelling },
+    notes: chordNotes(rootPc, q),
+    desc, category,
+  });
+
   if (family === "7th") {
     // Diatonic 7th chords
-    patterns.push({ name: `ii7 — ${noteName(ii)}m7`,          notes: chordNotes(ii, "min7"),   desc: "The two chord",   category: "diatonic" });
-    patterns.push({ name: `iii7 — ${noteName(iii)}m7`,         notes: chordNotes(iii, "min7"),  desc: "The three chord", category: "diatonic" });
-    patterns.push({ name: `IVmaj7 — ${noteName(iv)}maj7`,      notes: chordNotes(iv, "maj7"),   desc: "The four chord",  category: "diatonic" });
-    patterns.push({ name: `V7 — ${noteName(v)}7`,              notes: chordNotes(v, "dom7"),    desc: "The five chord",  category: "diatonic" });
-    patterns.push({ name: `vi7 — ${noteName(vi)}m7`,           notes: chordNotes(vi, "min7"),   desc: "Relative minor",  category: "diatonic" });
-    patterns.push({ name: `viiø7 — ${noteName(vii)}m7♭5`,      notes: chordNotes(vii, "m7b5"),  desc: "The seven chord", category: "diatonic" });
+    patterns.push(chordPat("ii7",    ii,  "min7", `${noteName(ii)}m7`,   `${noteName(ii)}m7`,   "The two chord",   "diatonic"));
+    patterns.push(chordPat("iii7",   iii, "min7", `${noteName(iii)}m7`,  `${noteName(iii)}m7`,  "The three chord", "diatonic"));
+    patterns.push(chordPat("IVmaj7", iv,  "maj7", `${noteName(iv)}maj7`, `${noteName(iv)}maj7`, "The four chord",  "diatonic"));
+    patterns.push(chordPat("V7",     v,   "dom7", `${noteName(v)}7`,     `${noteName(v)}7`,     "The five chord",  "diatonic"));
+    patterns.push(chordPat("vi7",    vi,  "min7", `${noteName(vi)}m7`,   `${noteName(vi)}m7`,   "Relative minor",  "diatonic"));
+    patterns.push(chordPat("viiø7",  vii, "m7b5", `${noteName(vii)}m7♭5`,`${noteName(vii)}m7♭5`,"The seven chord", "diatonic"));
     if (quality === "min7" || quality === "mM7") {
       const rel = (ri + 3) % 12;
-      patterns.push({ name: `IIImaj7 — ${noteName(rel)}maj7`, notes: chordNotes(rel, "maj7"), desc: "Relative major", category: "diatonic" });
+      patterns.push(chordPat("IIImaj7", rel, "maj7", `${noteName(rel)}maj7`, `${noteName(rel)}maj7`, "Relative major", "diatonic"));
     }
   } else {
     // Diatonic triads
-    patterns.push({ name: `ii — ${noteName(ii)} minor`,    notes: chordNotes(ii, "minor"),   desc: "The two chord",   category: "diatonic" });
-    patterns.push({ name: `iii — ${noteName(iii)} minor`,   notes: chordNotes(iii, "minor"),  desc: "The three chord", category: "diatonic" });
-    patterns.push({ name: `IV — ${noteName(iv)} major`,     notes: chordNotes(iv, "major"),   desc: "The four chord",  category: "diatonic" });
-    patterns.push({ name: `V — ${noteName(v)} major`,       notes: chordNotes(v, "major"),    desc: "The five chord",  category: "diatonic" });
-    patterns.push({ name: `vi — ${noteName(vi)} minor`,     notes: chordNotes(vi, "minor"),   desc: "Relative minor",  category: "diatonic" });
-    patterns.push({ name: `vii° — ${noteName(vii)} dim`,    notes: chordNotes(vii, "dim"),    desc: "The seven chord", category: "diatonic" });
+    patterns.push(chordPat("ii",   ii,  "minor", `${noteName(ii)} minor`,   `${noteName(ii)}m`,  "The two chord",   "diatonic"));
+    patterns.push(chordPat("iii",  iii, "minor", `${noteName(iii)} minor`,  `${noteName(iii)}m`, "The three chord", "diatonic"));
+    patterns.push(chordPat("IV",   iv,  "major", `${noteName(iv)} major`,   noteName(iv),        "The four chord",  "diatonic"));
+    patterns.push(chordPat("V",    v,   "major", `${noteName(v)} major`,    noteName(v),         "The five chord",  "diatonic"));
+    patterns.push(chordPat("vi",   vi,  "minor", `${noteName(vi)} minor`,   `${noteName(vi)}m`,  "Relative minor",  "diatonic"));
+    patterns.push(chordPat("vii°", vii, "dim",   `${noteName(vii)} dim`,    `${noteName(vii)}°`, "The seven chord", "diatonic"));
     if (quality === "minor") {
       const rel = (ri + 3) % 12;
-      patterns.push({ name: `III — ${noteName(rel)} major`, notes: chordNotes(rel, "major"), desc: "Relative major", category: "diatonic" });
+      patterns.push(chordPat("III", rel, "major", `${noteName(rel)} major`, noteName(rel), "Relative major", "diatonic"));
     }
   }
 
@@ -163,21 +175,21 @@ function generatePatterns(root, quality, family) {
     { label: "V7/vi",  sr: (ri + 4) % 12,  resolves: `${noteName(vi)}m` },
   ];
   for (const sd of secDom) {
-    patterns.push({ name: `${sd.label} — ${noteName(sd.sr)}7`, notes: chordNotes(sd.sr, "dom7"), desc: `Resolves to ${sd.resolves}`, category: "functional" });
+    patterns.push(chordPat(sd.label, sd.sr, "dom7", `${noteName(sd.sr)}7`, `${noteName(sd.sr)}7`, `Resolves to ${sd.resolves}`, "functional"));
   }
 
   // Borrowed chords (from parallel minor when major-type, from parallel major when minor-type)
   const majorQualities = ["major", "aug", "sus2", "sus4", "maj7", "dom7"];
   if (majorQualities.includes(quality)) {
     const biii = (ri + 3) % 12, bvi = (ri + 8) % 12, bvii = (ri + 10) % 12;
-    patterns.push({ name: `♭III — ${noteName(biii)}`,  notes: chordNotes(biii, "major"), desc: "Borrowed from parallel minor", category: "functional" });
-    patterns.push({ name: `♭VI — ${noteName(bvi)}`,    notes: chordNotes(bvi, "major"),  desc: "Borrowed from parallel minor", category: "functional" });
-    patterns.push({ name: `♭VII — ${noteName(bvii)}`,   notes: chordNotes(bvii, "major"), desc: "Borrowed from parallel minor", category: "functional" });
+    patterns.push(chordPat("♭III", biii, "major", noteName(biii), noteName(biii), "Borrowed from parallel minor", "functional"));
+    patterns.push(chordPat("♭VI",  bvi,  "major", noteName(bvi),  noteName(bvi),  "Borrowed from parallel minor", "functional"));
+    patterns.push(chordPat("♭VII", bvii, "major", noteName(bvii), noteName(bvii), "Borrowed from parallel minor", "functional"));
   }
 
   // Tritone substitution (♭II7 — tritone sub for V7)
   const tritone = (ri + 1) % 12;
-  patterns.push({ name: `♭II7 — ${noteName(tritone)}7`, notes: chordNotes(tritone, "dom7"), desc: "Tritone sub for V7", category: "functional" });
+  patterns.push(chordPat("♭II7", tritone, "dom7", `${noteName(tritone)}7`, `${noteName(tritone)}7`, "Tritone sub for V7", "functional"));
 
   return patterns;
 }
@@ -197,7 +209,7 @@ function computeFretRange(triadPositions, totalFrets) {
   return [start, end];
 }
 
-function renderFretboardSVG(triadPositions, patternNotes, fretRange, compact, ghostPositions, patternSpellingMap) {
+function renderFretboardSVG(triadPositions, patternNotes, fretRange, compact, ghostPositions, patternSpellingMap, shapeOpts) {
   const inst = getInstrument();
   const numStrings = inst.tuning.length;
   const [startFret, endFret] = fretRange;
@@ -213,6 +225,19 @@ function renderFretboardSVG(triadPositions, patternNotes, fretRange, compact, gh
   const midString = (numStrings - 1) / 2;
 
   let svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">`;
+
+  // Barre indicator (a soft bar across the barred strings at the barre fret).
+  // Drawn early so note dots render on top of it.
+  if (shapeOpts && shapeOpts.barre) {
+    const { fret, fromString, toString } = shapeOpts.barre;
+    if (fret >= startFret + 1 && fret <= endFret) {
+      const fi = fret - startFret - 1;
+      const cx = lp + fi * fs + fs / 2;
+      const y1 = tp + Math.min(fromString, toString) * ss;
+      const y2 = tp + Math.max(fromString, toString) * ss;
+      svg += `<line x1="${cx}" y1="${y1}" x2="${cx}" y2="${y2}" stroke="var(--triad-stroke)" stroke-width="${compact ? 18 : 20}" stroke-linecap="round" opacity="0.22"/>`;
+    }
+  }
 
   // Fret position dots — double at the octave, single elsewhere.
   for (const d of fretDots) {
@@ -251,6 +276,15 @@ function renderFretboardSVG(triadPositions, patternNotes, fretRange, compact, gh
     const fretNum = startFret + i + 1;
     if (fretNum < 0) continue;
     svg += `<text x="${lp + i * fs + fs / 2}" y="${h - 2}" text-anchor="middle" font-size="${compact ? 8 : 9}" fill="var(--text-muted)" font-family="monospace">${fretNum}</text>`;
+  }
+
+  // Muted-string markers ("×" just left of the nut) — used by barre/open
+  // shape cards so the viewer can see which strings to dampen.
+  if (shapeOpts && shapeOpts.muted && shapeOpts.muted.length) {
+    const xPos = lp - 6;
+    for (const si of shapeOpts.muted) {
+      svg += `<text x="${xPos}" y="${tp + si * ss + 4}" text-anchor="middle" font-size="${compact ? 10 : 11}" fill="var(--text-muted)" font-family="monospace" font-weight="700">×</text>`;
+    }
   }
 
   // Ghost inversion notes (other nearby inversions, rendered muted)
@@ -454,13 +488,22 @@ function render() {
   document.getElementById("pattern-header").innerHTML = tabsHtml;
 
   // Pattern cards (filtered by category)
+  // Chord-type patterns render the chord-spelling half of the name as a
+  // .chord-link so clicking it opens the voicing explorer. Scale/mode
+  // patterns keep their plain name.
+  const renderPatternName = (p) => {
+    if (!p.chord) return p.name;
+    const { rootPc, quality, spelling } = p.chord;
+    const linked = `<span class="chord-link" data-chord-root="${rootPc}" data-chord-quality="${quality}" data-chord-name="${spelling}" title="Explore voicings of ${spelling}">${p.chordText}</span>`;
+    return p.roman ? `${p.roman} — ${linked}` : linked;
+  };
   let cards = "";
   patterns.forEach((p, i) => {
     if (state.patternCategory !== "all" && p.category !== state.patternCategory) return;
     const sel = selectedPattern === i ? "selected" : "";
     const pMap = patternSpelling(p);
     cards += `<div class="pattern-card ${sel}" data-pattern="${i}">
-      <div class="pattern-name">${p.name}</div>
+      <div class="pattern-name">${renderPatternName(p)}</div>
       <div class="pattern-desc">${p.desc}</div>
       ${renderFretboardSVG(voicing, p.notes, fretRange, true, null, pMap)}
       <div class="pattern-notes-list">${p.notes.map(n => spellNote(n, pMap)).join(" · ")}</div>
