@@ -246,6 +246,27 @@ svg { width: 100%; height: auto; display: block; }
 .seq-pat-compact-count { font-size: 10px; color: var(--text-muted); }
 .seq-pat-compact-notes { font-size: 9px; color: var(--text-dim); margin-top: 2px; }
 
+/* Playback controls */
+.seq-playback { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.seq-play-btn {
+  padding: 6px 14px; border: 1px solid var(--border); background: var(--surface);
+  color: var(--text); font-family: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer; border-radius: 4px; transition: all 0.15s; min-width: 70px;
+  text-align: center;
+}
+.seq-play-btn:hover { border-color: var(--accent); background: var(--accent-glow); }
+.seq-play-btn.seq-playing { border-color: var(--accent); color: var(--accent); }
+.seq-tempo-slider { width: 120px; accent-color: var(--accent); }
+.seq-loop-btn {
+  padding: 4px 10px; border: 1px solid var(--border); background: var(--surface);
+  color: var(--text-muted); font-family: inherit; font-size: 10px; cursor: pointer;
+  border-radius: 4px; transition: all 0.15s; text-transform: uppercase; letter-spacing: 1px;
+}
+.seq-loop-btn:hover { border-color: var(--accent); }
+.seq-loop-btn.active { color: var(--accent); border-color: var(--accent); background: var(--accent-glow); }
+.seq-step-card.seq-step-playing { border-color: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+.seq-tempo-display { font-size: 11px; color: var(--text-muted); min-width: 55px; }
+
 @media print {
   .page-nav { display: none; }
   .circle-wrap { border: 1px solid #ccc; }
@@ -427,6 +448,7 @@ svg { width: 100%; height: auto; display: block; }
 
 <div id="page-sequencer" class="page" hidden>
   <div id="seq-controls" class="controls no-print"></div>
+  <div id="seq-playback"></div>
   <div id="seq-timeline" class="seq-timeline"></div>
   <div id="seq-editor"></div>
   <!-- Step-kind picker modal -->
@@ -466,6 +488,7 @@ svg { width: 100%; height: auto; display: block; }
 <script src="progressions.js"></script>
 <script src="scales-modes.js"></script>
 <script src="sequence-model.js"></script>
+<script src="playback.js"></script>
 <script src="practice-sequencer.js"></script>
 <script>
 (function(){

@@ -358,6 +358,16 @@ function renderSequencerPage() {
   `;
   document.getElementById("seq-controls").innerHTML = controls;
 
+  // Playback controls
+  const isPlaying = playbackIsPlaying();
+  document.getElementById("seq-playback").innerHTML = `<div class="seq-playback">
+    <button class="seq-play-btn ${isPlaying ? "seq-playing" : ""}" id="seq-play-btn">${isPlaying ? "&#9646;&#9646; Pause" : "&#9654; Play"}</button>
+    <button class="seq-play-btn" id="seq-stop-btn">&#9632; Stop</button>
+    <input type="range" class="seq-tempo-slider" id="seq-tempo-slider" min="40" max="200" value="${seq.tempo}" />
+    <span class="seq-tempo-display" id="seq-tempo-display">${seq.tempo} BPM</span>
+    <button class="seq-loop-btn ${seqState.playback.loop ? "active" : ""}" id="seq-loop-btn">Loop</button>
+  </div>`;
+
   // Timeline
   let timeline = "";
   steps.forEach((step, i) => {
@@ -428,7 +438,8 @@ function renderStepCard(step, index, isEditing) {
     kindLabel = step.kind;
   }
 
-  return `<div class="seq-step-card ${kindClass} ${isEditing ? "seq-step-editing" : ""}"
+  const isPlayingStep = seqState.playback.currentStepIndex === index;
+  return `<div class="seq-step-card ${kindClass} ${isEditing ? "seq-step-editing" : ""} ${isPlayingStep ? "seq-step-playing" : ""}"
                data-seq-idx="${index}" draggable="true">
     <div class="seq-step-head">
       <span class="seq-step-kind">${kindLabel}</span>
@@ -734,6 +745,70 @@ function attachSequencerEvents() {
         seqState.playback.tempo = val;
         saveSequence();
       }
+    };
+  }
+
+  // Playback controls
+  const playBtn = document.getElementById("seq-play-btn");
+  if (playBtn) {
+    playBtn.onclick = async () => {
+      if (playbackIsPlaying()) {
+        playbackPause();
+        seqState.playback.isPlaying = false;
+      } else {
+        seqState.playback.isPlaying = true;
+        loadSequence(seqState.sequence, (stepIdx) => {
+          seqState.playback.currentStepIndex = stepIdx;
+          // Update only the step highlighting without full re-render (avoids glitch)
+          document.querySelectorAll(".seq-step-card").forEach(card => {
+            const ci = parseInt(card.dataset.seqIdx);
+            card.classList.toggle("seq-step-playing", ci === stepIdx);
+          });
+          if (stepIdx === -1) {
+            seqState.playback.isPlaying = false;
+            const btn = document.getElementById("seq-play-btn");
+            if (btn) { btn.innerHTML = "&#9654; Play"; btn.classList.remove("seq-playing"); }
+          }
+        });
+        playbackSetLoop(seqState.playback.loop);
+        await playbackPlay();
+      }
+      renderSequencerPage();
+    };
+  }
+
+  const stopBtn = document.getElementById("seq-stop-btn");
+  if (stopBtn) {
+    stopBtn.onclick = () => {
+      playbackStop();
+      seqState.playback.isPlaying = false;
+      seqState.playback.currentStepIndex = -1;
+      renderSequencerPage();
+    };
+  }
+
+  const tempoSlider = document.getElementById("seq-tempo-slider");
+  if (tempoSlider) {
+    tempoSlider.oninput = () => {
+      const val = parseInt(tempoSlider.value);
+      seqState.sequence.tempo = val;
+      seqState.playback.tempo = val;
+      playbackSetTempo(val);
+      const display = document.getElementById("seq-tempo-display");
+      if (display) display.textContent = val + " BPM";
+      // Update the tempo input too
+      const ti = document.getElementById("seq-tempo");
+      if (ti) ti.value = val;
+    };
+    tempoSlider.onchange = () => saveSequence();
+  }
+
+  const loopBtn = document.getElementById("seq-loop-btn");
+  if (loopBtn) {
+    loopBtn.onclick = () => {
+      seqState.playback.loop = !seqState.playback.loop;
+      playbackSetLoop(seqState.playback.loop);
+      loopBtn.classList.toggle("active", seqState.playback.loop);
     };
   }
 
