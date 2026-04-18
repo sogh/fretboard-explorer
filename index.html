@@ -215,6 +215,37 @@ svg { width: 100%; height: auto; display: block; }
 .seq-ll-legend-item { display: flex; align-items: center; gap: 4px; font-size: 9px; color: var(--text-muted); }
 .seq-ll-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
 
+/* Pattern editor */
+.seq-pat-editor { max-width: 900px; }
+.seq-pat-fretboard { margin: 12px 0; cursor: crosshair; }
+.seq-pat-fretboard svg { cursor: crosshair; }
+.seq-pat-note-list { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; max-height: 240px; overflow-y: auto; }
+.seq-pat-note {
+  display: flex; align-items: center; gap: 6px; padding: 4px 8px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+  font-size: 11px; color: var(--text);
+}
+.seq-pat-note-num { color: var(--text-muted); font-size: 9px; min-width: 18px; }
+.seq-pat-note-info { flex: 1; font-weight: 600; }
+.seq-pat-note-degree { color: var(--pattern-note); margin-left: 4px; font-weight: 400; }
+.seq-pat-note select {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 3px;
+  color: var(--text); font-family: inherit; font-size: 10px; padding: 2px 4px;
+}
+.seq-pat-note-del {
+  background: none; border: none; color: var(--text-dim); cursor: pointer;
+  font-size: 13px; padding: 0 2px; line-height: 1;
+}
+.seq-pat-note-del:hover { color: #e55; }
+.seq-pat-note-move {
+  background: none; border: none; color: var(--text-dim); cursor: pointer;
+  font-size: 11px; padding: 0 1px; line-height: 1;
+}
+.seq-pat-note-move:hover { color: var(--accent); }
+.seq-pat-compact { text-align: center; padding: 6px 0; }
+.seq-pat-compact-count { font-size: 10px; color: var(--text-muted); }
+.seq-pat-compact-notes { font-size: 9px; color: var(--text-dim); margin-top: 2px; }
+
 @media print {
   .page-nav { display: none; }
   .circle-wrap { border: 1px solid #ccc; }
@@ -411,7 +442,7 @@ svg { width: 100%; height: auto; display: block; }
           <div class="seq-picker-icon">🎸</div>
           <div class="seq-picker-label">Lead Line</div>
         </button>
-        <button class="seq-picker-btn seq-picker-disabled" disabled title="Coming in Phase 4">
+        <button class="seq-picker-btn" data-seq-pick="pattern">
           <div class="seq-picker-icon">🎼</div>
           <div class="seq-picker-label">Pattern</div>
         </button>

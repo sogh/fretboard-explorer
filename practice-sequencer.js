@@ -231,6 +231,107 @@ function renderLeadLineFretboard(step, index, labelMode) {
   return svg;
 }
 
+// ── Pattern fretboard renderer (clickable for note entry) ──────────
+function renderPatternFretboard(step) {
+  const inst = getInstrument();
+  const numStrings = inst.tuning.length;
+  const maxFret = inst.numFrets;
+  const startFret = 0;
+  const endFret = maxFret;
+  const numFrets = endFret - startFret;
+  const ss = 22, fs = 38, tp = 24, lp = 14;
+  const w = lp + numFrets * fs + 20;
+  const h = tp + (numStrings - 1) * ss + 20;
+  const r = 10;
+  const fretDots = [3, 5, 7, 9, 12, 15];
+  const midString = (numStrings - 1) / 2;
+
+  // Scale context for degree labels
+  const scaleKey = step.scale ? step.scale.type : "ionian";
+  const scaleRootPc = step.scale ? noteIndex(step.scale.root) : 0;
+  const scaleDef = SCALES[scaleKey] || SCALES.ionian;
+  const scalePcs = scaleDef.steps.map(s => (scaleRootPc + s) % 12);
+  const scaleSet = new Set(scalePcs);
+  const noteNameMap = spellScale(noteName(scaleRootPc), scaleDef.steps);
+
+  // Build set of already-entered notes for highlighting
+  const enteredSet = new Set((step.notes || []).map(n => `${n.string}-${n.fret}`));
+
+  let svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" id="seq-pat-svg">`;
+
+  // Fret dots
+  for (const d of fretDots) {
+    if (d < startFret + 1 || d > endFret) continue;
+    const x = lp + (d - startFret - 1) * fs + fs / 2;
+    if (d === 12) {
+      svg += `<circle cx="${x}" cy="${tp + (midString - 1) * ss}" r="3" fill="var(--dot-muted)" opacity="0.4"/>`;
+      svg += `<circle cx="${x}" cy="${tp + (midString + 1) * ss}" r="3" fill="var(--dot-muted)" opacity="0.4"/>`;
+    } else {
+      svg += `<circle cx="${x}" cy="${tp + midString * ss}" r="3" fill="var(--dot-muted)" opacity="0.3"/>`;
+    }
+  }
+
+  // Fret lines
+  for (let i = 0; i <= numFrets; i++) {
+    const x = lp + i * fs;
+    const fretNum = startFret + i;
+    const isNut = fretNum === 0;
+    svg += `<line x1="${x}" y1="${tp}" x2="${x}" y2="${tp + (numStrings - 1) * ss}" stroke="var(--fret-color)" stroke-width="${isNut ? 3 : 1}" opacity="${isNut ? 0.8 : 0.3}"/>`;
+  }
+
+  // Strings
+  for (let i = 0; i < numStrings; i++) {
+    const y = tp + i * ss;
+    const minFret = inst.stringMinFret && inst.stringMinFret[i] != null ? inst.stringMinFret[i] : 0;
+    const stringStartFret = Math.max(startFret, minFret);
+    if (stringStartFret > endFret) continue;
+    const x1 = lp + (stringStartFret - startFret) * fs;
+    const x2 = lp + numFrets * fs;
+    svg += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="var(--string-color)" stroke-width="${(1 + i * 0.3).toFixed(1)}" opacity="0.5"/>`;
+  }
+
+  // Fret numbers
+  for (let i = 0; i < numFrets; i++) {
+    const fretNum = startFret + i + 1;
+    if (fretNum < 0) continue;
+    svg += `<text x="${lp + i * fs + fs / 2}" y="${h - 2}" text-anchor="middle" font-size="9" fill="var(--text-muted)" font-family="monospace">${fretNum}</text>`;
+  }
+
+  // Scale notes (dimmed background context) + clickable hit areas
+  for (let si = 0; si < numStrings; si++) {
+    for (let fi = 0; fi < numFrets; fi++) {
+      const fret = startFret + fi + 1;
+      if (fret < 0 || fret > maxFret) continue;
+      if (!fretPositionPlayable(si, fret)) continue;
+      const pc = (inst.tuning[si] + fret) % 12;
+      if (!scaleSet.has(pc)) continue;
+
+      const cx = lp + fi * fs + fs / 2;
+      const cy = tp + si * ss;
+      const key = `${si}-${fret}`;
+      const isEntered = enteredSet.has(key);
+      const isRoot = pc === scaleRootPc;
+      const idx = scaleDef.steps.indexOf((pc - scaleRootPc + 12) % 12);
+      const degree = scaleDef.degrees[idx] || "";
+
+      if (isEntered) {
+        // Entered note: bright
+        svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--accent)" stroke="var(--triad-stroke)" stroke-width="2"/>`;
+        svg += `<text x="${cx}" y="${cy + 3.5}" text-anchor="middle" font-size="10" fill="#fff" font-weight="700" font-family="monospace">${degree}</text>`;
+      } else {
+        // Available note: dim
+        svg += `<circle cx="${cx}" cy="${cy}" r="${r - 2}" fill="${isRoot ? "var(--triad-fill)" : "var(--pattern-note)"}" opacity="0.25"/>`;
+        svg += `<text x="${cx}" y="${cy + 3}" text-anchor="middle" font-size="8" fill="var(--text-dim)" font-family="monospace">${degree}</text>`;
+      }
+      // Invisible click target
+      svg += `<circle cx="${cx}" cy="${cy}" r="${r + 2}" fill="transparent" class="seq-pat-click" data-pat-string="${si}" data-pat-fret="${fret}" data-pat-degree="${degree}" style="cursor:pointer"/>`;
+    }
+  }
+
+  svg += `</svg>`;
+  return svg;
+}
+
 // ── Render ─────────────────────────────────────────────────────────
 function renderSequencerPage() {
   const seq = seqState.sequence;
@@ -309,6 +410,17 @@ function renderStepCard(step, index, isEditing) {
       <div class="seq-ll-scale">${scaleName}</div>
       <div class="seq-ll-icon">~~~</div>
     </div>`;
+  } else if (step.kind === "pattern") {
+    const noteCount = (step.notes || []).length;
+    kindLabel = `Pattern`;
+    const noteNames = (step.notes || []).slice(0, 6).map(n => {
+      const pc = (getInstrument().tuning[n.string] + n.fret) % 12;
+      return noteName(pc);
+    }).join(" ");
+    inner = `<div class="seq-pat-compact">
+      <div class="seq-pat-compact-count">${noteCount} note${noteCount !== 1 ? "s" : ""}</div>
+      <div class="seq-pat-compact-notes">${noteNames}${noteCount > 6 ? " ..." : ""}</div>
+    </div>`;
   } else if (step.kind === "rest") {
     kindLabel = "Rest";
     inner = `<div class="seq-step-rest-icon">&#119102;</div>`;
@@ -330,6 +442,7 @@ function renderStepCard(step, index, isEditing) {
 function renderStepEditor(step, index) {
   if (step.kind === "chord") return renderChordEditor(step, index);
   if (step.kind === "lead_line") return renderLeadLineEditor(step, index);
+  if (step.kind === "pattern") return renderPatternEditor(step, index);
   if (step.kind === "rest") return renderRestEditor(step, index);
   return "";
 }
@@ -380,6 +493,92 @@ function renderChordEditor(step, index) {
       </div>
     </div>
     <div class="seq-editor-row" style="justify-content:flex-end">
+      <button class="print-btn" id="seq-editor-close">Done</button>
+    </div>
+  </div>`;
+}
+
+// ── Pattern editor ─────────────────────────────────────────────────
+function renderPatternEditor(step, index) {
+  const inst = getInstrument();
+  const heptatonic = ["ionian", "dorian", "phrygian", "lydian", "mixolydian", "aeolian", "locrian"];
+  const pentatonic = ["majorPent", "minorPent", "blues"];
+  const allScaleKeys = [...heptatonic, ...pentatonic];
+
+  const scaleKey = step.scale ? step.scale.type : "ionian";
+  const scaleRootPc = step.scale ? noteIndex(step.scale.root) : 0;
+  const scaleDef = SCALES[scaleKey] || SCALES.ionian;
+
+  const articulations = [
+    { key: "", label: "Normal" },
+    { key: "bend", label: "Bend" },
+    { key: "slide", label: "Slide" },
+    { key: "hammer", label: "Hammer" },
+    { key: "pull", label: "Pull" },
+  ];
+
+  // Note list
+  let noteListHtml = "";
+  if (step.notes && step.notes.length > 0) {
+    noteListHtml = `<div class="seq-pat-note-list">`;
+    step.notes.forEach((n, ni) => {
+      const pc = (inst.tuning[n.string] + n.fret) % 12;
+      const name = noteName(pc);
+      const degreeIdx = scaleDef.steps.indexOf((pc - scaleRootPc + 12) % 12);
+      const degree = scaleDef.degrees[degreeIdx] || "";
+      const artSymbol = n.articulation ? ` (${n.articulation})` : "";
+
+      noteListHtml += `<div class="seq-pat-note">
+        <span class="seq-pat-note-num">${ni + 1}</span>
+        <span class="seq-pat-note-info">S${n.string + 1} F${n.fret} — ${name}<span class="seq-pat-note-degree">${degree}</span>${artSymbol}</span>
+        <select data-pat-note-dur="${ni}">
+          ${[0.25, 0.5, 1, 2, 4].map(d => `<option value="${d}" ${n.durationBeats === d ? "selected" : ""}>${d}b</option>`).join("")}
+        </select>
+        <select data-pat-note-art="${ni}">
+          ${articulations.map(a => `<option value="${a.key}" ${(n.articulation || "") === a.key ? "selected" : ""}>${a.label}</option>`).join("")}
+        </select>
+        <button class="seq-pat-note-move" data-pat-note-up="${ni}" title="Move up" ${ni === 0 ? "disabled" : ""}>&#9650;</button>
+        <button class="seq-pat-note-move" data-pat-note-down="${ni}" title="Move down" ${ni === step.notes.length - 1 ? "disabled" : ""}>&#9660;</button>
+        <button class="seq-pat-note-del" data-pat-note-del="${ni}" title="Remove">&#215;</button>
+      </div>`;
+    });
+    noteListHtml += `</div>`;
+  } else {
+    noteListHtml = `<div class="seq-step-empty">Click scale notes on the fretboard to add them</div>`;
+  }
+
+  const fretboard = renderPatternFretboard(step);
+
+  return `<div class="seq-editor-panel seq-pat-editor">
+    <div class="seq-editor-title">Edit pattern step</div>
+    <div class="seq-editor-row">
+      <div class="control-group">
+        <span class="control-label">Scale context (for degree labels)</span>
+        <div class="control-options">
+          ${NOTES.map(n => `<button class="control-btn ${step.scale && step.scale.root === n ? "active" : ""}" data-seq-pat-root="${n}">${n}</button>`).join("")}
+        </div>
+      </div>
+    </div>
+    <div class="seq-editor-row">
+      <div class="control-group">
+        <span class="control-label">Scale type</span>
+        <div class="control-options">
+          ${allScaleKeys.map(k => `<button class="control-btn ${scaleKey === k ? "active" : ""}" data-seq-pat-type="${k}">${SCALES[k].name}</button>`).join("")}
+        </div>
+      </div>
+    </div>
+    <div class="seq-editor-row">
+      <div class="control-group">
+        <span class="control-label">Duration (beats)</span>
+        <div class="control-options">
+          ${[1,2,4,6,8,12].map(d => `<button class="control-btn ${step.durationBeats === d ? "active" : ""}" data-seq-edit="durationBeats" data-val="${d}">${d}</button>`).join("")}
+        </div>
+      </div>
+    </div>
+    <div class="seq-pat-fretboard">${fretboard}</div>
+    <span class="control-label">Notes (${(step.notes || []).length}) — click fretboard to add</span>
+    ${noteListHtml}
+    <div class="seq-editor-row" style="justify-content:flex-end;margin-top:8px">
       <button class="print-btn" id="seq-editor-close">Done</button>
     </div>
   </div>`;
@@ -565,6 +764,9 @@ function attachSequencerEvents() {
       } else if (kind === "lead_line") {
         seqState.sequence.steps.push(leadLineStep({ durationBeats: 8 }));
         seqState.editingStepIndex = seqState.sequence.steps.length - 1;
+      } else if (kind === "pattern") {
+        seqState.sequence.steps.push(patternStep({ scale: { root: "A", type: "minorPent" }, durationBeats: 4, notes: [] }));
+        seqState.editingStepIndex = seqState.sequence.steps.length - 1;
       } else if (kind === "rest") {
         seqState.sequence.steps.push(restStep({ durationBeats: 2 }));
       }
@@ -685,6 +887,114 @@ function attachSequencerEvents() {
   document.querySelectorAll("[data-seq-ll-label]").forEach(btn => {
     btn.onclick = () => {
       seqState.leadLineLabelMode = btn.dataset.seqLlLabel;
+      renderSequencerPage();
+    };
+  });
+
+  // ── Pattern editor events ─────────────────────────────────────────
+  // Scale root for pattern
+  document.querySelectorAll("[data-seq-pat-root]").forEach(btn => {
+    btn.onclick = () => {
+      const idx = seqState.editingStepIndex;
+      if (idx < 0) return;
+      const step = seqState.sequence.steps[idx];
+      const type = (step.scale && step.scale.type) || "ionian";
+      step.scale = { root: btn.dataset.seqPatRoot, type };
+      saveSequence();
+      renderSequencerPage();
+    };
+  });
+
+  // Scale type for pattern
+  document.querySelectorAll("[data-seq-pat-type]").forEach(btn => {
+    btn.onclick = () => {
+      const idx = seqState.editingStepIndex;
+      if (idx < 0) return;
+      const step = seqState.sequence.steps[idx];
+      const root = (step.scale && step.scale.root) || "C";
+      step.scale = { root, type: btn.dataset.seqPatType };
+      saveSequence();
+      renderSequencerPage();
+    };
+  });
+
+  // Click on fretboard to add note
+  document.querySelectorAll(".seq-pat-click").forEach(el => {
+    el.onclick = () => {
+      const idx = seqState.editingStepIndex;
+      if (idx < 0) return;
+      const step = seqState.sequence.steps[idx];
+      if (step.kind !== "pattern") return;
+      const string = parseInt(el.dataset.patString);
+      const fret = parseInt(el.dataset.patFret);
+      const degree = el.dataset.patDegree || "";
+      step.notes.push({ string, fret, degree, durationBeats: 1, articulation: null });
+      saveSequence();
+      renderSequencerPage();
+    };
+  });
+
+  // Note duration change
+  document.querySelectorAll("[data-pat-note-dur]").forEach(sel => {
+    sel.onchange = () => {
+      const idx = seqState.editingStepIndex;
+      if (idx < 0) return;
+      const step = seqState.sequence.steps[idx];
+      const ni = parseInt(sel.dataset.patNoteDur);
+      step.notes[ni].durationBeats = parseFloat(sel.value);
+      saveSequence();
+    };
+  });
+
+  // Note articulation change
+  document.querySelectorAll("[data-pat-note-art]").forEach(sel => {
+    sel.onchange = () => {
+      const idx = seqState.editingStepIndex;
+      if (idx < 0) return;
+      const step = seqState.sequence.steps[idx];
+      const ni = parseInt(sel.dataset.patNoteArt);
+      step.notes[ni].articulation = sel.value || null;
+      saveSequence();
+    };
+  });
+
+  // Note delete
+  document.querySelectorAll("[data-pat-note-del]").forEach(btn => {
+    btn.onclick = () => {
+      const idx = seqState.editingStepIndex;
+      if (idx < 0) return;
+      const step = seqState.sequence.steps[idx];
+      const ni = parseInt(btn.dataset.patNoteDel);
+      step.notes.splice(ni, 1);
+      saveSequence();
+      renderSequencerPage();
+    };
+  });
+
+  // Note move up
+  document.querySelectorAll("[data-pat-note-up]").forEach(btn => {
+    btn.onclick = () => {
+      const idx = seqState.editingStepIndex;
+      if (idx < 0) return;
+      const step = seqState.sequence.steps[idx];
+      const ni = parseInt(btn.dataset.patNoteUp);
+      if (ni <= 0) return;
+      [step.notes[ni - 1], step.notes[ni]] = [step.notes[ni], step.notes[ni - 1]];
+      saveSequence();
+      renderSequencerPage();
+    };
+  });
+
+  // Note move down
+  document.querySelectorAll("[data-pat-note-down]").forEach(btn => {
+    btn.onclick = () => {
+      const idx = seqState.editingStepIndex;
+      if (idx < 0) return;
+      const step = seqState.sequence.steps[idx];
+      const ni = parseInt(btn.dataset.patNoteDown);
+      if (ni >= step.notes.length - 1) return;
+      [step.notes[ni], step.notes[ni + 1]] = [step.notes[ni + 1], step.notes[ni]];
+      saveSequence();
       renderSequencerPage();
     };
   });
