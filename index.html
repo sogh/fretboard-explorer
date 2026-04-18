@@ -109,6 +109,84 @@ svg { width: 100%; height: auto; display: block; }
 .scale-tone-deg { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .scale-tone-note { font-size: 12px; font-weight: 600; color: var(--text); }
 
+/* ── Practice Sequencer ─────────────────────────────────────────── */
+.seq-timeline {
+  display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start;
+  padding: 8px 0 16px; min-height: 100px;
+}
+.seq-step-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 8px; width: 160px; cursor: grab; transition: all 0.15s; position: relative;
+}
+.seq-step-card:hover { border-color: var(--text-dim); background: var(--surface-hover); }
+.seq-step-card.seq-step-editing { border-color: var(--accent); background: var(--selected-bg); }
+.seq-step-card.seq-dragging { opacity: 0.4; }
+.seq-step-card.seq-drag-over { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+.seq-step-head {
+  display: flex; align-items: center; gap: 4px; margin-bottom: 4px;
+}
+.seq-step-kind { font-size: 11px; font-weight: 600; color: var(--text); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seq-step-beats { font-size: 9px; color: var(--text-muted); }
+.seq-step-delete {
+  background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 14px;
+  padding: 0 2px; line-height: 1; opacity: 0; transition: opacity 0.15s;
+}
+.seq-step-card:hover .seq-step-delete { opacity: 1; }
+.seq-step-delete:hover { color: #e55; }
+.seq-step-body { min-height: 40px; }
+.seq-step-empty { font-size: 10px; color: var(--text-muted); text-align: center; padding: 12px 0; }
+.seq-step-rest-icon { font-size: 28px; text-align: center; color: var(--text-dim); padding: 8px 0; }
+
+.seq-add-card {
+  background: var(--surface); border: 2px dashed var(--border); border-radius: 6px;
+  width: 100px; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; cursor: pointer; transition: all 0.15s; min-height: 100px;
+}
+.seq-add-card:hover { border-color: var(--accent); background: var(--accent-glow); }
+.seq-add-icon { font-size: 24px; color: var(--text-dim); line-height: 1; }
+.seq-add-card:hover .seq-add-icon { color: var(--accent); }
+.seq-add-label { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+.seq-name-input, .seq-tempo-input {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text); font-family: inherit; font-size: 12px; padding: 5px 8px;
+}
+.seq-name-input { width: 220px; }
+.seq-tempo-input { width: 60px; text-align: center; }
+.seq-name-input:focus, .seq-tempo-input:focus { outline: none; border-color: var(--accent); }
+
+/* Step-kind picker modal */
+.seq-picker-modal {
+  position: fixed; inset: 0; z-index: 50; display: none;
+  background: rgba(4, 4, 10, 0.72); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  padding: 20vh 4vw; overflow: auto;
+}
+.seq-picker-modal.open { display: flex; align-items: flex-start; justify-content: center; }
+.seq-picker-panel {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+  padding: 20px 24px 24px; box-shadow: 0 24px 60px rgba(0,0,0,0.55);
+  min-width: 320px; text-align: center;
+}
+.seq-picker-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1.5px; }
+.seq-picker-options { display: flex; gap: 10px; justify-content: center; margin-bottom: 16px; }
+.seq-picker-btn {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 14px 18px; cursor: pointer; transition: all 0.15s; min-width: 80px;
+  font-family: inherit;
+}
+.seq-picker-btn:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-glow); }
+.seq-picker-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.seq-picker-icon { font-size: 22px; margin-bottom: 4px; }
+.seq-picker-label { font-size: 10px; color: var(--text); text-transform: uppercase; letter-spacing: 1px; }
+
+/* Editor panel */
+.seq-editor-panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 16px; max-width: 700px; margin-bottom: 20px;
+}
+.seq-editor-title { font-size: 12px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; }
+.seq-editor-row { margin-bottom: 8px; }
+
 @media print {
   .page-nav { display: none; }
   .circle-wrap { border: 1px solid #ccc; }
@@ -253,6 +331,7 @@ svg { width: 100%; height: auto; display: block; }
   <button class="nav-btn" data-page="circle">Circle of Fifths</button>
   <button class="nav-btn" data-page="progressions">Progressions</button>
   <button class="nav-btn" data-page="scales">Scales &amp; Modes</button>
+  <button class="nav-btn" data-page="sequencer">Sequencer</button>
   <a class="nav-btn switch" href="piano.html" style="text-decoration:none">→ Piano</a>
   <a class="nav-btn switch" href="trumpet.html" style="text-decoration:none">→ Trumpet</a>
 </nav>
@@ -287,6 +366,37 @@ svg { width: 100%; height: auto; display: block; }
   <div id="scales-positions" class="patterns-grid"></div>
 </div>
 
+<div id="page-sequencer" class="page" hidden>
+  <div id="seq-controls" class="controls no-print"></div>
+  <div id="seq-timeline" class="seq-timeline"></div>
+  <div id="seq-editor"></div>
+  <!-- Step-kind picker modal -->
+  <div id="seq-picker-modal" class="seq-picker-modal no-print" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="seq-picker-panel">
+      <div class="seq-picker-title">Add step</div>
+      <div class="seq-picker-options">
+        <button class="seq-picker-btn" data-seq-pick="chord">
+          <div class="seq-picker-icon">🎵</div>
+          <div class="seq-picker-label">Chord</div>
+        </button>
+        <button class="seq-picker-btn seq-picker-disabled" disabled title="Coming in Phase 3">
+          <div class="seq-picker-icon">🎸</div>
+          <div class="seq-picker-label">Lead Line</div>
+        </button>
+        <button class="seq-picker-btn seq-picker-disabled" disabled title="Coming in Phase 4">
+          <div class="seq-picker-icon">🎼</div>
+          <div class="seq-picker-label">Pattern</div>
+        </button>
+        <button class="seq-picker-btn" data-seq-pick="rest">
+          <div class="seq-picker-icon">𝄾</div>
+          <div class="seq-picker-label">Rest</div>
+        </button>
+      </div>
+      <button class="chord-explorer-close" id="seq-picker-close" type="button">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div id="chord-explorer" class="no-print" role="dialog" aria-modal="true" aria-hidden="true"></div>
 
 <script src="theory.js"></script>
@@ -296,9 +406,11 @@ svg { width: 100%; height: auto; display: block; }
 <script src="circle-of-fifths.js"></script>
 <script src="progressions.js"></script>
 <script src="scales-modes.js"></script>
+<script src="sequence-model.js"></script>
+<script src="practice-sequencer.js"></script>
 <script>
 (function(){
-  const pageIds = ["fretboard", "circle", "progressions", "scales"];
+  const pageIds = ["fretboard", "circle", "progressions", "scales", "sequencer"];
   const pages = Object.fromEntries(pageIds.map(id => [id, document.getElementById(`page-${id}`)]));
   document.querySelectorAll("#page-nav .nav-btn").forEach(btn => {
     btn.onclick = () => {
