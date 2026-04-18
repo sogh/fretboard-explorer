@@ -7,11 +7,18 @@
 const SEQ_STORAGE_KEY = "fretboard-explorer-sequence";
 
 // ── Sequencer state (global) ───────────────────────────────────────
+const CARD_FRET_SIZES = [
+  { key: "S",  frets: 5,  width: 140, label: "S" },
+  { key: "M",  frets: 9,  width: 220, label: "M" },
+  { key: "L",  frets: 15, width: 340, label: "L" },
+];
+
 const seqState = {
   sequence: createSequence({ name: "My practice sequence" }),
   playback: { isPlaying: false, currentStepIndex: -1, tempo: 80, loop: false },
   editingStepIndex: -1,
   leadLineLabelMode: "degree",  // "degree" | "note"
+  cardSize: "M",                // "S" | "M" | "L"
 };
 
 // ── Persistence ────────────────────────────────────────────────────
@@ -215,10 +222,11 @@ function renderLeadLineFretboard(step, index, labelMode) {
         svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--triad-fill)" stroke="var(--triad-stroke)" stroke-width="2.5"/>`;
         svg += `<text x="${cx}" y="${cy + 3.5}" text-anchor="middle" font-size="10" fill="var(--triad-text)" font-weight="700" font-family="monospace">${label}</text>`;
       } else if (isLanding) {
-        // Landing zones: prominent styling — filled circle with thicker border
-        const landingColor = isLandingPrev ? "var(--triad-fill)" : "var(--pattern-note)";
-        const landingStroke = isLandingPrev ? "var(--triad-stroke)" : "var(--pattern-note)";
-        svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${landingColor}" stroke="${landingStroke}" stroke-width="2" opacity="0.7"/>`;
+        // Landing zones: distinct colors — green for prev chord tones, orange-red for next
+        const landingColor = isLandingPrev ? "var(--landing-prev)" : "var(--landing-next)";
+        const landingStroke = isLandingPrev ? "var(--landing-prev-stroke)" : "var(--landing-next-stroke)";
+        // Diamond shape to stand out from regular scale notes
+        svg += `<rect x="${cx - r}" y="${cy - r}" width="${r * 2}" height="${r * 2}" rx="3" fill="${landingColor}" stroke="${landingStroke}" stroke-width="2" transform="rotate(45 ${cx} ${cy})"/>`;
         svg += `<text x="${cx}" y="${cy + 3.5}" text-anchor="middle" font-size="10" fill="#fff" font-weight="700" font-family="monospace">${label}</text>`;
       } else {
         svg += `<circle cx="${cx}" cy="${cy}" r="${r - 1}" fill="var(--pattern-note)" opacity="0.5"/>`;
@@ -352,6 +360,12 @@ function renderSequencerPage() {
         <span class="control-label" style="margin-left:4px">BPM</span>
       </div>
     </div>
+    <div class="control-group">
+      <span class="control-label">Card size</span>
+      <div class="control-options">
+        ${CARD_FRET_SIZES.map(s => `<button class="control-btn ${seqState.cardSize === s.key ? "active" : ""}" data-seq-card-size="${s.key}">${s.label}</button>`).join("")}
+      </div>
+    </div>
     <div class="control-group" style="justify-content:flex-end">
       <button class="print-btn" id="seq-clear-btn">Clear all</button>
     </div>
@@ -380,7 +394,9 @@ function renderSequencerPage() {
     <div class="seq-add-label">Add step</div>
   </div>`;
 
-  document.getElementById("seq-timeline").innerHTML = timeline;
+  const timelineEl = document.getElementById("seq-timeline");
+  timelineEl.innerHTML = timeline;
+  timelineEl.style.setProperty("--seq-card-width", getCardSize().width + "px");
 
   // Editor
   const editorEl = document.getElementById("seq-editor");
@@ -399,6 +415,142 @@ function escAttr(s) {
   return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
 
+// ── Compact fretboard for step cards ───────────────────────────────
+// Renders a small fretboard suitable for a timeline card. Supports:
+//   - scale mode: shows all scale-degree notes in a fret window
+//   - note mode: shows specific entered notes
+// opts: { scalePcs, scaleRootPc, scaleDef, notes (array of {string,fret}),
+//          fretRange, ghostPrev, ghostNext }
+function renderCardFretboard(opts) {
+  const inst = getInstrument();
+  const numStrings = inst.tuning.length;
+  const [startFret, endFret] = opts.fretRange;
+  const numFrets = endFret - startFret;
+  if (numFrets <= 0) return "";
+
+  const ss = 16, fs = 22, tp = 14, lp = 8;
+  const w = lp + numFrets * fs + 12;
+  const h = tp + (numStrings - 1) * ss + 14;
+  const r = 7;
+  const midString = (numStrings - 1) / 2;
+  const fretDots = [3, 5, 7, 9, 12, 15];
+
+  let svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">`;
+
+  // Fret dots
+  for (const d of fretDots) {
+    if (d < startFret + 1 || d > endFret) continue;
+    const x = lp + (d - startFret - 1) * fs + fs / 2;
+    if (d === 12) {
+      svg += `<circle cx="${x}" cy="${tp + (midString - 1) * ss}" r="2" fill="var(--dot-muted)" opacity="0.35"/>`;
+      svg += `<circle cx="${x}" cy="${tp + (midString + 1) * ss}" r="2" fill="var(--dot-muted)" opacity="0.35"/>`;
+    } else {
+      svg += `<circle cx="${x}" cy="${tp + midString * ss}" r="2" fill="var(--dot-muted)" opacity="0.25"/>`;
+    }
+  }
+
+  // Fret lines
+  for (let i = 0; i <= numFrets; i++) {
+    const x = lp + i * fs;
+    const fretNum = startFret + i;
+    svg += `<line x1="${x}" y1="${tp}" x2="${x}" y2="${tp + (numStrings - 1) * ss}" stroke="var(--fret-color)" stroke-width="${fretNum === 0 ? 2.5 : 0.8}" opacity="${fretNum === 0 ? 0.7 : 0.25}"/>`;
+  }
+
+  // Strings
+  for (let i = 0; i < numStrings; i++) {
+    const y = tp + i * ss;
+    svg += `<line x1="${lp}" y1="${y}" x2="${lp + numFrets * fs}" y2="${y}" stroke="var(--string-color)" stroke-width="${(0.8 + i * 0.2).toFixed(1)}" opacity="0.4"/>`;
+  }
+
+  // Fret numbers (sparse — only first and last visible)
+  const firstFret = startFret + 1;
+  const lastFret = endFret;
+  if (firstFret > 0) svg += `<text x="${lp + fs / 2}" y="${h - 1}" text-anchor="middle" font-size="7" fill="var(--text-muted)" font-family="monospace">${firstFret}</text>`;
+  if (lastFret > firstFret) svg += `<text x="${lp + (numFrets - 1) * fs + fs / 2}" y="${h - 1}" text-anchor="middle" font-size="7" fill="var(--text-muted)" font-family="monospace">${lastFret}</text>`;
+
+  // Ghost overlays (bracket chord voicings)
+  if (opts.ghostPrev) {
+    for (const gp of opts.ghostPrev) {
+      if (gp.fret < startFret + 1 || gp.fret > endFret) continue;
+      const cx = lp + (gp.fret - startFret - 1) * fs + fs / 2;
+      const cy = tp + gp.string * ss;
+      svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--triad-fill)" opacity="0.15"/>`;
+    }
+  }
+  if (opts.ghostNext) {
+    for (const gp of opts.ghostNext) {
+      if (gp.fret < startFret + 1 || gp.fret > endFret) continue;
+      const cx = lp + (gp.fret - startFret - 1) * fs + fs / 2;
+      const cy = tp + gp.string * ss;
+      svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--pattern-note)" opacity="0.15"/>`;
+    }
+  }
+
+  // Scale-mode notes (lead line)
+  if (opts.scalePcs && opts.scaleDef) {
+    const scaleSet = new Set(opts.scalePcs);
+    const prevChordPcs = opts.landingPrev || new Set();
+    const nextChordPcs = opts.landingNext || new Set();
+    for (let si = 0; si < numStrings; si++) {
+      for (let fi = 0; fi < numFrets; fi++) {
+        const fret = startFret + fi + 1;
+        if (fret < 0 || fret > inst.numFrets) continue;
+        if (!fretPositionPlayable(si, fret)) continue;
+        const pc = (inst.tuning[si] + fret) % 12;
+        if (!scaleSet.has(pc)) continue;
+        const cx = lp + fi * fs + fs / 2;
+        const cy = tp + si * ss;
+        const isRoot = pc === opts.scaleRootPc;
+        const isLandingPrev = prevChordPcs.has(pc);
+        const isLandingNext = nextChordPcs.has(pc);
+        const isLanding = isLandingPrev || isLandingNext;
+        if (isRoot) {
+          svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--triad-fill)" stroke="var(--triad-stroke)" stroke-width="1.5"/>`;
+        } else if (isLanding) {
+          const lc = isLandingPrev ? "var(--landing-prev)" : "var(--landing-next)";
+          const ls = isLandingPrev ? "var(--landing-prev-stroke)" : "var(--landing-next-stroke)";
+          svg += `<rect x="${cx - r}" y="${cy - r}" width="${r * 2}" height="${r * 2}" rx="2" fill="${lc}" stroke="${ls}" stroke-width="1.5" transform="rotate(45 ${cx} ${cy})"/>`;
+        } else {
+          svg += `<circle cx="${cx}" cy="${cy}" r="${r - 1}" fill="var(--pattern-note)" opacity="0.45"/>`;
+        }
+      }
+    }
+  }
+
+  // Specific-note mode (pattern)
+  if (opts.notes && opts.notes.length) {
+    // Number each note for ordering
+    opts.notes.forEach((n, ni) => {
+      if (n.fret < startFret + 1 || n.fret > endFret) return;
+      const cx = lp + (n.fret - startFret - 1) * fs + fs / 2;
+      const cy = tp + n.string * ss;
+      svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--accent)" stroke="var(--triad-stroke)" stroke-width="1.5"/>`;
+      svg += `<text x="${cx}" y="${cy + 3}" text-anchor="middle" font-size="7" fill="#fff" font-weight="700" font-family="monospace">${ni + 1}</text>`;
+    });
+  }
+
+  svg += `</svg>`;
+  return svg;
+}
+
+// Compute a fret range that fits the given positions, centered, with totalFrets width.
+function cardFretRange(positions, totalFrets) {
+  if (!positions || !positions.length) return [0, totalFrets];
+  const frets = positions.map(p => p.fret);
+  const center = (Math.min(...frets) + Math.max(...frets)) / 2;
+  const half = totalFrets / 2;
+  let start = Math.round(center - half);
+  let end = start + totalFrets;
+  if (start < -1) { start = -1; end = start + totalFrets; }
+  const maxFret = getInstrument().numFrets;
+  if (end > maxFret) { end = maxFret; start = Math.max(-1, end - totalFrets); }
+  return [start, end];
+}
+
+function getCardSize() {
+  return CARD_FRET_SIZES.find(s => s.key === seqState.cardSize) || CARD_FRET_SIZES[1];
+}
+
 function renderStepCard(step, index, isEditing) {
   let inner = "";
   let kindLabel;
@@ -414,23 +566,50 @@ function renderStepCard(step, index, isEditing) {
       inner = `<div class="seq-step-empty">No voicing</div>`;
     }
   } else if (step.kind === "lead_line") {
-    const scaleName = step.scale ? `${step.scale.root} ${step.scale.type}` : "auto";
     kindLabel = `Lead Line`;
-    inner = `<div class="seq-ll-compact">
-      <div class="seq-ll-scale">${scaleName}</div>
-      <div class="seq-ll-icon">~~~</div>
-    </div>`;
+    // Resolve scale
+    const steps = seqState.sequence.steps;
+    const { prev, next } = findBracketChords(steps, index);
+    let scaleKey, scaleRootPc;
+    if (step.scale) {
+      scaleKey = step.scale.type;
+      scaleRootPc = noteIndex(step.scale.root);
+    } else {
+      const sug = suggestScalesForBracket(
+        prev ? { root: prev.root, quality: prev.quality } : null,
+        next ? { root: next.root, quality: next.quality } : null
+      );
+      if (sug.length) { scaleKey = sug[0].scaleKey; scaleRootPc = sug[0].rootPc; }
+      else { scaleKey = "ionian"; scaleRootPc = 0; }
+    }
+    const scaleDef = SCALES[scaleKey] || SCALES.ionian;
+    const scalePcs = scaleDef.steps.map(s => (scaleRootPc + s) % 12);
+    // Fret range: center on bracket chord positions if available, else mid-neck
+    const bracketPositions = [
+      ...((prev && prev.voicing && prev.voicing.positions) || []),
+      ...((next && next.voicing && next.voicing.positions) || []),
+    ];
+    const sz = getCardSize();
+    const range = bracketPositions.length ? cardFretRange(bracketPositions, sz.frets) : [0, sz.frets];
+    const prevPcs = prev ? new Set(chordPcs(prev.root, prev.quality)) : new Set();
+    const nextPcs = next ? new Set(chordPcs(next.root, next.quality)) : new Set();
+    inner = renderCardFretboard({
+      scalePcs, scaleRootPc, scaleDef,
+      fretRange: range,
+      ghostPrev: (prev && prev.voicing) ? prev.voicing.positions : null,
+      ghostNext: (next && next.voicing) ? next.voicing.positions : null,
+      landingPrev: prevPcs, landingNext: nextPcs,
+    });
   } else if (step.kind === "pattern") {
-    const noteCount = (step.notes || []).length;
     kindLabel = `Pattern`;
-    const noteNames = (step.notes || []).slice(0, 6).map(n => {
-      const pc = (getInstrument().tuning[n.string] + n.fret) % 12;
-      return noteName(pc);
-    }).join(" ");
-    inner = `<div class="seq-pat-compact">
-      <div class="seq-pat-compact-count">${noteCount} note${noteCount !== 1 ? "s" : ""}</div>
-      <div class="seq-pat-compact-notes">${noteNames}${noteCount > 6 ? " ..." : ""}</div>
-    </div>`;
+    const notes = step.notes || [];
+    if (notes.length) {
+      const sz = getCardSize();
+      const range = cardFretRange(notes, sz.frets);
+      inner = renderCardFretboard({ notes, fretRange: range });
+    } else {
+      inner = `<div class="seq-step-empty">No notes</div>`;
+    }
   } else if (step.kind === "rest") {
     kindLabel = "Rest";
     inner = `<div class="seq-step-rest-icon">&#119102;</div>`;
@@ -658,8 +837,8 @@ function renderLeadLineEditor(step, index) {
 
   // Legend
   const legend = `<div class="seq-ll-legend">
-    <span class="seq-ll-legend-item"><span class="seq-ll-dot" style="background:var(--triad-fill);opacity:0.7"></span> Prev chord landing</span>
-    <span class="seq-ll-legend-item"><span class="seq-ll-dot" style="background:var(--pattern-note);opacity:0.7"></span> Next chord landing</span>
+    <span class="seq-ll-legend-item"><span class="seq-ll-dot" style="background:var(--landing-prev);transform:rotate(45deg);border-radius:2px"></span> Prev landing</span>
+    <span class="seq-ll-legend-item"><span class="seq-ll-dot" style="background:var(--landing-next);transform:rotate(45deg);border-radius:2px"></span> Next landing</span>
     <span class="seq-ll-legend-item"><span class="seq-ll-dot" style="background:var(--triad-fill);opacity:0.18;border:1.5px solid var(--triad-stroke)"></span> Prev ghost</span>
     <span class="seq-ll-legend-item"><span class="seq-ll-dot" style="background:var(--pattern-note);opacity:0.18;border:1.5px solid var(--pattern-note)"></span> Next ghost</span>
   </div>`;
@@ -811,6 +990,14 @@ function attachSequencerEvents() {
       loopBtn.classList.toggle("active", seqState.playback.loop);
     };
   }
+
+  // Card size
+  document.querySelectorAll("[data-seq-card-size]").forEach(btn => {
+    btn.onclick = () => {
+      seqState.cardSize = btn.dataset.seqCardSize;
+      renderSequencerPage();
+    };
+  });
 
   // Clear all
   const clearBtn = document.getElementById("seq-clear-btn");
