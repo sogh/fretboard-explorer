@@ -187,6 +187,34 @@ svg { width: 100%; height: auto; display: block; }
 .seq-editor-title { font-size: 12px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; }
 .seq-editor-row { margin-bottom: 8px; }
 
+/* Lead Line editor */
+.seq-ll-editor { max-width: 900px; }
+.seq-ll-compact { text-align: center; padding: 8px 0; }
+.seq-ll-scale { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+.seq-ll-icon { font-size: 16px; color: var(--text-dim); letter-spacing: 4px; margin-top: 4px; }
+.seq-ll-bracket-info { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.seq-ll-suggestions { margin-bottom: 12px; }
+.seq-ll-suggest-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.seq-ll-suggest-btn {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+  padding: 6px 10px; cursor: pointer; transition: all 0.15s; text-align: left;
+  font-family: inherit;
+}
+.seq-ll-suggest-btn:hover { border-color: var(--accent); background: var(--accent-glow); }
+.seq-ll-suggest-btn.active { border-color: var(--accent); background: var(--selected-bg); }
+.seq-ll-suggest-name { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; }
+.seq-ll-suggest-reason { font-size: 10px; color: var(--text-muted); }
+.seq-ll-suggest-badge {
+  font-size: 8px; text-transform: uppercase; letter-spacing: 1px;
+  background: var(--accent-glow); color: var(--accent); padding: 1px 5px;
+  border-radius: 3px; border: 1px solid var(--accent); white-space: nowrap;
+}
+.seq-ll-fretboard { margin: 12px 0; }
+.seq-ll-legend { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.seq-ll-legend-item { display: flex; align-items: center; gap: 4px; font-size: 9px; color: var(--text-muted); }
+.seq-ll-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+
 @media print {
   .page-nav { display: none; }
   .circle-wrap { border: 1px solid #ccc; }
@@ -379,7 +407,7 @@ svg { width: 100%; height: auto; display: block; }
           <div class="seq-picker-icon">🎵</div>
           <div class="seq-picker-label">Chord</div>
         </button>
-        <button class="seq-picker-btn seq-picker-disabled" disabled title="Coming in Phase 3">
+        <button class="seq-picker-btn" data-seq-pick="lead_line">
           <div class="seq-picker-icon">🎸</div>
           <div class="seq-picker-label">Lead Line</div>
         </button>

@@ -101,8 +101,111 @@ function spellNote(pc, map) {
   return noteName(pc);
 }
 
+// ── Bracket-chord scale suggestions ───────────────────────────────
+// Given two chords bracketing a lead-line gap, suggest scales that
+// work over the transition. Returns an array of suggestion objects
+// sorted by fit, each with { scaleKey, root, rootPc, name, reasoning }.
+//
+// Algorithm:
+//   1. Collect all pitch classes from both chords.
+//   2. For every 7-note scale in SCALES, for every root, test whether
+//      the scale contains all chord tones.
+//   3. Rank: scales that contain ALL tones from BOTH chords first,
+//      then scales matching only one chord. Within a tier, prefer
+//      the scale rooted on prevChord's root (most idiomatic), then
+//      on nextChord's root.
+//   4. Return top suggestions with a human-readable reasoning string.
+
+function chordPcs(root, quality) {
+  const rootPc = typeof root === "number" ? root : noteIndex(root);
+  const intervals = CHORD_INTERVALS[quality];
+  if (!intervals) return [];
+  return intervals.map(i => (rootPc + i) % 12);
+}
+
+function suggestScalesForBracket(prevChord, nextChord) {
+  // prevChord / nextChord: { root (name or pc), quality }. Either may be null.
+  const prev = prevChord ? { rootPc: typeof prevChord.root === "number" ? prevChord.root : noteIndex(prevChord.root), quality: prevChord.quality } : null;
+  const next = nextChord ? { rootPc: typeof nextChord.root === "number" ? nextChord.root : noteIndex(nextChord.root), quality: nextChord.quality } : null;
+
+  const prevPcs = prev ? chordPcs(prev.rootPc, prev.quality) : [];
+  const nextPcs = next ? chordPcs(next.rootPc, next.quality) : [];
+  const allPcs = new Set([...prevPcs, ...nextPcs]);
+
+  // Only check heptatonic scales (7-note) for bracket suggestions.
+  const heptatonic = ["ionian", "dorian", "phrygian", "lydian", "mixolydian", "aeolian", "locrian"];
+
+  const results = [];
+
+  for (let rootPc = 0; rootPc < 12; rootPc++) {
+    for (const key of heptatonic) {
+      const def = SCALES[key];
+      const scalePcSet = new Set(def.steps.map(s => (rootPc + s) % 12));
+
+      const fitsPrev = prevPcs.every(pc => scalePcSet.has(pc));
+      const fitsNext = nextPcs.every(pc => scalePcSet.has(pc));
+      if (!fitsPrev && !fitsNext) continue;
+
+      const fitsBoth = fitsPrev && fitsNext;
+
+      // Priority score: lower = better.
+      let priority = fitsBoth ? 0 : 100;
+      // Prefer scales rooted on the prevChord's root.
+      if (prev && rootPc === prev.rootPc) priority -= 10;
+      else if (next && rootPc === next.rootPc) priority -= 5;
+      // Prefer simpler modes (ionian/aeolian over locrian/phrygian).
+      const modeRank = heptatonic.indexOf(key);
+      priority += modeRank;
+
+      results.push({ scaleKey: key, rootPc, priority, fitsBoth, fitsPrev, fitsNext });
+    }
+  }
+
+  results.sort((a, b) => a.priority - b.priority);
+
+  // Build suggestions with reasoning.
+  const suggestions = [];
+  const seen = new Set();
+  for (const r of results) {
+    if (suggestions.length >= 6) break;
+    const tag = `${r.rootPc}-${r.scaleKey}`;
+    if (seen.has(tag)) continue;
+    seen.add(tag);
+
+    const rootName = noteName(r.rootPc);
+    const def = SCALES[r.scaleKey];
+    const name = `${rootName} ${def.name}`;
+
+    let reasoning;
+    if (r.fitsBoth) {
+      if (prev && next && prev.rootPc === next.rootPc) {
+        reasoning = `Both chords are diatonic to ${name}`;
+      } else {
+        const prevName = prev ? `${noteName(prev.rootPc)} ${prev.quality}` : "?";
+        const nextName = next ? `${noteName(next.rootPc)} ${next.quality}` : "?";
+        reasoning = `${prevName} and ${nextName} are both diatonic to ${name}`;
+      }
+    } else if (r.fitsPrev) {
+      reasoning = `Fits the previous chord (${prev ? noteName(prev.rootPc) + " " + prev.quality : "?"}); bridge to the next`;
+    } else {
+      reasoning = `Fits the next chord (${next ? noteName(next.rootPc) + " " + next.quality : "?"}); approach from the previous`;
+    }
+
+    suggestions.push({
+      scaleKey: r.scaleKey,
+      root: rootName,
+      rootPc: r.rootPc,
+      name,
+      reasoning,
+      fitsBoth: r.fitsBoth,
+    });
+  }
+
+  return suggestions;
+}
+
 // Node-only export hook so the test suite can pull in these helpers.
 // Browsers ignore this because `module` is undefined at global scope.
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { NOTES, SCALES, noteIndex, noteName, spellScale, spellNote };
+  module.exports = { NOTES, SCALES, CHORD_INTERVALS, noteIndex, noteName, spellScale, spellNote, chordPcs, suggestScalesForBracket };
 }

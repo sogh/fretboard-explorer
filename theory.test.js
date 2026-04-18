@@ -1,7 +1,11 @@
 // Minimal test runner for theory.js helpers. Run with `node theory.test.js`.
-const { SCALES, spellScale, spellNote, noteIndex } = require("./theory.js");
+const { SCALES, CHORD_INTERVALS, spellScale, spellNote, noteIndex, noteName, chordPcs, suggestScalesForBracket } = require("./theory.js");
 
 let passed = 0, failed = 0;
+function ok(condition, label) {
+  if (condition) { passed++; console.log(`  ok  ${label}`); }
+  else { failed++; console.log(`  FAIL ${label}`); }
+}
 function eq(actual, expected, label) {
   const a = JSON.stringify(actual);
   const e = JSON.stringify(expected);
@@ -71,6 +75,66 @@ console.log("\nRenderer simulation — every scale pc returns its map spelling:"
     eq(spellNote(pc, map), map[pc], `pc ${pc} → ${map[pc]}`);
   }
 })();
+
+// ── chordPcs ───────────────────────────────────────────────────────
+console.log("\nchordPcs:");
+eq(chordPcs("C", "major"), [0, 4, 7], "C major = C E G");
+eq(chordPcs("G", "major"), [7, 11, 2], "G major = G B D");
+eq(chordPcs("A", "minor"), [9, 0, 4], "A minor = A C E");
+eq(chordPcs(7, "major"), [7, 11, 2], "G major by pc");
+
+// ── suggestScalesForBracket ────────────────────────────────────────
+console.log("\nsuggestScalesForBracket:");
+
+// G major → Am: both diatonic to G major / C major
+const gToAm = suggestScalesForBracket(
+  { root: "G", quality: "major" },
+  { root: "A", quality: "minor" }
+);
+ok(gToAm.length > 0, "G→Am returns suggestions");
+ok(gToAm[0].fitsBoth, "G→Am top suggestion fits both chords");
+// Top suggestion should be G-rooted (Ionian or Mixolydian) or C-rooted
+const topRoot = gToAm[0].rootPc;
+const topKey = gToAm[0].scaleKey;
+ok(
+  (topRoot === 7 && topKey === "ionian") ||
+  (topRoot === 7 && topKey === "mixolydian") ||
+  (topRoot === 0 && topKey === "ionian"),
+  `G→Am top suggestion is sensible: ${gToAm[0].name}`
+);
+ok(gToAm[0].reasoning.length > 0, "G→Am has reasoning string");
+
+// Same chord on both sides
+const gToG = suggestScalesForBracket(
+  { root: "G", quality: "major" },
+  { root: "G", quality: "major" }
+);
+ok(gToG.length > 0, "G→G returns suggestions");
+ok(gToG[0].fitsBoth, "G→G top fits both");
+
+// One side null (first or last step in the sequence)
+const gOnly = suggestScalesForBracket(
+  { root: "G", quality: "major" },
+  null
+);
+ok(gOnly.length > 0, "G→null returns suggestions");
+
+const nullToAm = suggestScalesForBracket(
+  null,
+  { root: "A", quality: "minor" }
+);
+ok(nullToAm.length > 0, "null→Am returns suggestions");
+
+// Non-diatonic pair: C major → F# major
+const cToFsharp = suggestScalesForBracket(
+  { root: "C", quality: "major" },
+  { root: "F#", quality: "major" }
+);
+ok(cToFsharp.length > 0, "C→F# returns suggestions (even if none fit both)");
+// Some may fit only one chord
+const anyFitsBoth = cToFsharp.some(s => s.fitsBoth);
+// C and F# major share no diatonic key, so fitsBoth should be false for most
+// (though Lydian might work in some cases)
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);
