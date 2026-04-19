@@ -793,6 +793,14 @@ function renderPatternEditor(step, index) {
     </div>
     <div class="seq-editor-row">
       <div class="control-group">
+        <span class="control-label">Generate pattern</span>
+        <div class="control-options">
+          ${Object.entries(PATTERN_GENERATORS).map(([k, g]) => `<button class="control-btn" data-seq-gen="${k}" title="${g.desc}">${g.name}</button>`).join("")}
+        </div>
+      </div>
+    </div>
+    <div class="seq-editor-row">
+      <div class="control-group">
         <span class="control-label">Duration (beats)</span>
         <div class="control-options">
           ${[1,2,4,6,8,12].map(d => `<button class="control-btn ${step.durationBeats === d ? "active" : ""}" data-seq-edit="durationBeats" data-val="${d}">${d}</button>`).join("")}
@@ -800,7 +808,7 @@ function renderPatternEditor(step, index) {
       </div>
     </div>
     <div class="seq-pat-fretboard">${fretboard}</div>
-    <span class="control-label">Notes (${(step.notes || []).length}) — click fretboard to add</span>
+    <span class="control-label">Notes (${(step.notes || []).length}) — click fretboard to add, or use a generator above</span>
     ${noteListHtml}
     <div class="seq-editor-row" style="justify-content:flex-end;margin-top:8px">
       <button class="print-btn" id="seq-editor-close">Done</button>
@@ -1208,6 +1216,33 @@ function attachSequencerEvents() {
       const step = seqState.sequence.steps[idx];
       const root = (step.scale && step.scale.root) || "C";
       step.scale = { root, type: btn.dataset.seqPatType };
+      saveSequence();
+      renderSequencerPage();
+    };
+  });
+
+  // Pattern generators
+  document.querySelectorAll("[data-seq-gen]").forEach(btn => {
+    btn.onclick = () => {
+      const idx = seqState.editingStepIndex;
+      if (idx < 0) return;
+      const step = seqState.sequence.steps[idx];
+      if (step.kind !== "pattern") return;
+      const genName = btn.dataset.seqGen;
+      const gen = PATTERN_GENERATORS[genName];
+      if (!gen) return;
+      // Use first existing note as starting position, or default to fret 5 low E
+      const startingNote = (step.notes && step.notes.length)
+        ? step.notes[0]
+        : { string: 5, fret: 5 };
+      const generated = runGenerator(genName, {
+        scale: step.scale || { root: "C", type: "ionian" },
+        startingNote,
+        noteCount: 12,
+        params: gen.defaultParams,
+      });
+      step.notes = generated;
+      step.generator = { name: genName, params: gen.defaultParams };
       saveSequence();
       renderSequencerPage();
     };
