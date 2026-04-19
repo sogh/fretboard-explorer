@@ -970,9 +970,8 @@ function attachSequencerEvents() {
         seqState.playback.isPlaying = false;
       } else {
         seqState.playback.isPlaying = true;
-        loadSequence(seqState.sequence, (stepIdx) => {
+        const stepCallback = (stepIdx) => {
           seqState.playback.currentStepIndex = stepIdx;
-          // Update only the step highlighting without full re-render (avoids glitch)
           document.querySelectorAll(".seq-step-card").forEach(card => {
             const ci = parseInt(card.dataset.seqIdx);
             card.classList.toggle("seq-step-playing", ci === stepIdx);
@@ -982,9 +981,9 @@ function attachSequencerEvents() {
             const btn = document.getElementById("seq-play-btn");
             if (btn) { btn.innerHTML = "&#9654; Play"; btn.classList.remove("seq-playing"); }
           }
-        });
+        };
         playbackSetLoop(seqState.playback.loop);
-        await playbackPlay();
+        await playbackPlay(seqState.sequence, stepCallback);
       }
       renderSequencerPage();
     };
