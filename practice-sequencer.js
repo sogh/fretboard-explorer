@@ -428,9 +428,11 @@ function renderCardFretboard(opts) {
   const numFrets = endFret - startFret;
   if (numFrets <= 0) return "";
 
-  const ss = 16, fs = 22, tp = 14, lp = 8;
+  // Use fixed height dimensions matching the chord card renderer so all
+  // step cards have the same vertical size regardless of fret count.
+  const ss = 20, fs = 22, tp = 22, lp = 8, bp = 20;
   const w = lp + numFrets * fs + 12;
-  const h = tp + (numStrings - 1) * ss + 14;
+  const h = tp + (numStrings - 1) * ss + bp;
   const r = 7;
   const midString = (numStrings - 1) / 2;
   const fretDots = [3, 5, 7, 9, 12, 15];
@@ -465,8 +467,20 @@ function renderCardFretboard(opts) {
   // Fret numbers (sparse — only first and last visible)
   const firstFret = startFret + 1;
   const lastFret = endFret;
-  if (firstFret > 0) svg += `<text x="${lp + fs / 2}" y="${h - 1}" text-anchor="middle" font-size="7" fill="var(--text-muted)" font-family="monospace">${firstFret}</text>`;
-  if (lastFret > firstFret) svg += `<text x="${lp + (numFrets - 1) * fs + fs / 2}" y="${h - 1}" text-anchor="middle" font-size="7" fill="var(--text-muted)" font-family="monospace">${lastFret}</text>`;
+  const fretNumY = tp + (numStrings - 1) * ss + 14;
+  if (firstFret > 0) svg += `<text x="${lp + fs / 2}" y="${fretNumY}" text-anchor="middle" font-size="7" fill="var(--text-muted)" font-family="monospace">${firstFret}</text>`;
+  if (lastFret > firstFret) svg += `<text x="${lp + (numFrets - 1) * fs + fs / 2}" y="${fretNumY}" text-anchor="middle" font-size="7" fill="var(--text-muted)" font-family="monospace">${lastFret}</text>`;
+
+  // Chord positions (chord step cards)
+  if (opts.chordPositions) {
+    for (const p of opts.chordPositions) {
+      if (p.fret < startFret + 1 || p.fret > endFret) continue;
+      const cx = lp + (p.fret - startFret - 1) * fs + fs / 2;
+      const cy = tp + p.string * ss;
+      svg += `<circle cx="${cx}" cy="${cy}" r="${r + 1}" fill="var(--triad-fill)" stroke="var(--triad-stroke)" stroke-width="1.5"/>`;
+      svg += `<text x="${cx}" y="${cy + 3}" text-anchor="middle" font-size="7" fill="var(--triad-text)" font-weight="700" font-family="monospace">${p.degree || ""}</text>`;
+    }
+  }
 
   // Ghost overlays (bracket chord voicings)
   if (opts.ghostPrev) {
@@ -576,8 +590,9 @@ function renderStepCard(step, index, isEditing) {
     kindLabel = `${step.root} ${step.quality}`;
     const positions = step.voicing && step.voicing.positions && step.voicing.positions.length ? step.voicing.positions : null;
     if (positions) {
-      const range = computeFretRange(positions, 7);
-      inner = renderFretboardSVG(positions, null, range, true, null, null);
+      const sz = getCardSize();
+      const range = cardFretRange(positions, sz.frets);
+      inner = renderCardFretboard({ chordPositions: positions, fretRange: range });
     } else {
       inner = `<div class="seq-step-empty">No voicing</div>`;
     }
