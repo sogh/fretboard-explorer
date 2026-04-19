@@ -491,6 +491,8 @@ function renderCardFretboard(opts) {
     const scaleSet = new Set(opts.scalePcs);
     const prevChordPcs = opts.landingPrev || new Set();
     const nextChordPcs = opts.landingNext || new Set();
+    const noteNameMap = opts.scaleRootPc != null ? spellScale(noteName(opts.scaleRootPc), opts.scaleDef.steps) : null;
+    const labelMode = opts.labelMode || "degree";
     for (let si = 0; si < numStrings; si++) {
       for (let fi = 0; fi < numFrets; fi++) {
         const fret = startFret + fi + 1;
@@ -501,17 +503,23 @@ function renderCardFretboard(opts) {
         const cx = lp + fi * fs + fs / 2;
         const cy = tp + si * ss;
         const isRoot = pc === opts.scaleRootPc;
+        // Landing = this pc is one of the bracket chord's tones (3-4 notes), not the whole scale
         const isLandingPrev = prevChordPcs.has(pc);
         const isLandingNext = nextChordPcs.has(pc);
         const isLanding = isLandingPrev || isLandingNext;
+        const degIdx = opts.scaleDef.steps.indexOf((pc - opts.scaleRootPc + 12) % 12);
+        const label = labelMode === "note" ? spellNote(pc, noteNameMap) : (opts.scaleDef.degrees[degIdx] || "");
         if (isRoot) {
           svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--triad-fill)" stroke="var(--triad-stroke)" stroke-width="1.5"/>`;
+          svg += `<text x="${cx}" y="${cy + 2.5}" text-anchor="middle" font-size="6" fill="var(--triad-text)" font-weight="700" font-family="monospace">${label}</text>`;
         } else if (isLanding) {
           const lc = isLandingPrev ? "var(--landing-prev)" : "var(--landing-next)";
           const ls = isLandingPrev ? "var(--landing-prev-stroke)" : "var(--landing-next-stroke)";
-          svg += `<rect x="${cx - r}" y="${cy - r}" width="${r * 2}" height="${r * 2}" rx="2" fill="${lc}" stroke="${ls}" stroke-width="1.5" transform="rotate(45 ${cx} ${cy})"/>`;
+          svg += `<rect x="${cx - r}" y="${cy - r}" width="${r * 2}" height="${r * 2}" rx="2" fill="${lc}" stroke="${ls}" stroke-width="1" transform="rotate(45 ${cx} ${cy})"/>`;
+          svg += `<text x="${cx}" y="${cy + 2.5}" text-anchor="middle" font-size="6" fill="#fff" font-weight="600" font-family="monospace">${label}</text>`;
         } else {
           svg += `<circle cx="${cx}" cy="${cy}" r="${r - 1}" fill="var(--pattern-note)" opacity="0.45"/>`;
+          svg += `<text x="${cx}" y="${cy + 2.5}" text-anchor="middle" font-size="6" fill="var(--pattern-text)" font-family="monospace" opacity="0.8">${label}</text>`;
         }
       }
     }
@@ -519,13 +527,21 @@ function renderCardFretboard(opts) {
 
   // Specific-note mode (pattern)
   if (opts.notes && opts.notes.length) {
-    // Number each note for ordering
+    const patScaleDef = opts.scaleDef || (opts.patScale ? SCALES[opts.patScale.type] : null);
+    const patRootPc = opts.patScale ? noteIndex(opts.patScale.root) : null;
+    const patNoteMap = (patRootPc != null && patScaleDef) ? spellScale(noteName(patRootPc), patScaleDef.steps) : null;
     opts.notes.forEach((n, ni) => {
       if (n.fret < startFret + 1 || n.fret > endFret) return;
       const cx = lp + (n.fret - startFret - 1) * fs + fs / 2;
       const cy = tp + n.string * ss;
-      svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--accent)" stroke="var(--triad-stroke)" stroke-width="1.5"/>`;
-      svg += `<text x="${cx}" y="${cy + 3}" text-anchor="middle" font-size="7" fill="#fff" font-weight="700" font-family="monospace">${ni + 1}</text>`;
+      const pc = (inst.tuning[n.string] + n.fret) % 12;
+      let label = "" + (ni + 1);
+      if (patScaleDef && patRootPc != null) {
+        const degIdx = patScaleDef.steps.indexOf((pc - patRootPc + 12) % 12);
+        if (degIdx >= 0) label = patScaleDef.degrees[degIdx];
+      }
+      svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--accent)" stroke="var(--triad-stroke)" stroke-width="1"/>`;
+      svg += `<text x="${cx}" y="${cy + 2.5}" text-anchor="middle" font-size="6" fill="#fff" font-weight="700" font-family="monospace">${label}</text>`;
     });
   }
 
@@ -595,6 +611,7 @@ function renderStepCard(step, index, isEditing) {
     const nextPcs = next ? new Set(chordPcs(next.root, next.quality)) : new Set();
     inner = renderCardFretboard({
       scalePcs, scaleRootPc, scaleDef,
+      labelMode: seqState.leadLineLabelMode,
       fretRange: range,
       ghostPrev: (prev && prev.voicing) ? prev.voicing.positions : null,
       ghostNext: (next && next.voicing) ? next.voicing.positions : null,
@@ -606,7 +623,9 @@ function renderStepCard(step, index, isEditing) {
     if (notes.length) {
       const sz = getCardSize();
       const range = cardFretRange(notes, sz.frets);
-      inner = renderCardFretboard({ notes, fretRange: range });
+      const patScale = step.scale || null;
+      const patScaleDef = patScale ? (SCALES[patScale.type] || null) : null;
+      inner = renderCardFretboard({ notes, fretRange: range, patScale, scaleDef: patScaleDef });
     } else {
       inner = `<div class="seq-step-empty">No notes</div>`;
     }
