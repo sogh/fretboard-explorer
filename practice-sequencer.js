@@ -41,6 +41,32 @@ function loadSequence() {
   } catch (_) { /* corrupted */ }
 }
 
+// ── URL hash persistence ───────────────────────────────────────────
+function saveSequenceToHash() {
+  try {
+    const json = sequenceToJSON(seqState.sequence);
+    const compressed = btoa(encodeURIComponent(json));
+    history.replaceState(null, "", "#seq=" + compressed);
+  } catch (_) { /* too large or encoding error */ }
+}
+
+function loadSequenceFromHash() {
+  const hash = window.location.hash;
+  if (!hash.startsWith("#seq=")) return false;
+  try {
+    const compressed = hash.slice(5);
+    const json = decodeURIComponent(atob(compressed));
+    const restored = sequenceFromJSON(json);
+    if (validateSequence(restored).length === 0) {
+      seqState.sequence = restored;
+      seqState.playback.tempo = restored.tempo;
+      saveSequence(); // also persist to localStorage
+      return true;
+    }
+  } catch (_) { /* bad hash */ }
+  return false;
+}
+
 // ── Chord voicing helper ───────────────────────────────────────────
 function voicingForChordStep(step) {
   const quality = step.quality;
@@ -366,7 +392,8 @@ function renderSequencerPage() {
         ${CARD_FRET_SIZES.map(s => `<button class="control-btn ${seqState.cardSize === s.key ? "active" : ""}" data-seq-card-size="${s.key}">${s.label}</button>`).join("")}
       </div>
     </div>
-    <div class="control-group" style="justify-content:flex-end">
+    <div class="control-group" style="justify-content:flex-end;gap:6px">
+      <button class="print-btn" id="seq-share-btn">Copy link</button>
       <button class="print-btn" id="seq-clear-btn">Clear all</button>
     </div>
   `;
@@ -716,7 +743,8 @@ function renderChordEditor(step, index) {
         </div>
       </div>
     </div>
-    <div class="seq-editor-row" style="justify-content:flex-end">
+    <div class="seq-editor-row" style="justify-content:flex-end;gap:6px">
+      <button class="print-btn" data-seq-jump="triad" data-jump-root="${step.root}" data-jump-quality="${step.quality}" title="Open in Triad Explorer">Open in Triads</button>
       <button class="print-btn" id="seq-editor-close">Done</button>
     </div>
   </div>`;
@@ -929,7 +957,8 @@ function renderLeadLineEditor(step, index) {
     </div>
     ${legend}
     <div class="seq-ll-fretboard">${fretboard}</div>
-    <div class="seq-editor-row" style="justify-content:flex-end">
+    <div class="seq-editor-row" style="justify-content:flex-end;gap:6px">
+      <button class="print-btn" data-seq-jump="scales" data-jump-root="${currentScale ? currentScale.root : (suggestions.length ? suggestions[0].root : "C")}" data-jump-scale="${currentScale ? currentScale.type : (suggestions.length ? suggestions[0].scaleKey : "ionian")}" title="Open in Scales &amp; Modes">Open in Scales</button>
       <button class="print-btn" id="seq-editor-close">Done</button>
     </div>
   </div>`;
@@ -1329,6 +1358,42 @@ function attachSequencerEvents() {
     };
   });
 
+  // Cross-links
+  document.querySelectorAll("[data-seq-jump]").forEach(btn => {
+    btn.onclick = () => {
+      const target = btn.dataset.seqJump;
+      if (target === "triad") {
+        state.root = btn.dataset.jumpRoot;
+        state.quality = btn.dataset.jumpQuality;
+        state.selectedPattern = null;
+        render();
+        jumpToPage("fretboard");
+      } else if (target === "scales") {
+        scaleState.root = btn.dataset.jumpRoot;
+        scaleState.scale = btn.dataset.jumpScale;
+        scaleState.position = -1;
+        renderScalesPage();
+        jumpToPage("scales");
+      }
+    };
+  });
+
+  // Share button
+  const shareBtn = document.getElementById("seq-share-btn");
+  if (shareBtn) {
+    shareBtn.onclick = () => {
+      saveSequenceToHash();
+      const url = window.location.href;
+      navigator.clipboard.writeText(url).then(() => {
+        shareBtn.textContent = "Copied!";
+        setTimeout(() => { shareBtn.textContent = "Copy link"; }, 1500);
+      }).catch(() => {
+        // Fallback: select a prompt
+        prompt("Copy this URL:", url);
+      });
+    };
+  }
+
   // Drag-and-drop reorder
   document.querySelectorAll(".seq-step-card[draggable]").forEach(card => {
     card.ondragstart = (ev) => {
@@ -1366,5 +1431,12 @@ function attachSequencerEvents() {
 }
 
 // ── Boot ───────────────────────────────────────────────────────────
-loadSequence();
+// URL hash takes priority over localStorage. If the hash contains a
+// sequence, load it and switch to the sequencer page.
+if (loadSequenceFromHash()) {
+  // Defer page switch until the nav is wired up (runs after this script).
+  setTimeout(() => { if (window.jumpToPage) jumpToPage("sequencer"); }, 0);
+} else {
+  loadSequence();
+}
 renderSequencerPage();

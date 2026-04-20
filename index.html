@@ -499,12 +499,15 @@ svg { width: 100%; height: auto; display: block; }
 (function(){
   const pageIds = ["fretboard", "circle", "progressions", "scales", "sequencer"];
   const pages = Object.fromEntries(pageIds.map(id => [id, document.getElementById(`page-${id}`)]));
+
+  // Global page switcher — usable from any module for cross-links.
+  window.jumpToPage = function(pageId) {
+    document.querySelectorAll("#page-nav .nav-btn").forEach(b => b.classList.toggle("active", b.dataset.page === pageId));
+    Object.entries(pages).forEach(([k, el]) => { el.hidden = k !== pageId; });
+  };
+
   document.querySelectorAll("#page-nav .nav-btn").forEach(btn => {
-    btn.onclick = () => {
-      const p = btn.dataset.page;
-      document.querySelectorAll("#page-nav .nav-btn").forEach(b => b.classList.toggle("active", b.dataset.page === p));
-      Object.entries(pages).forEach(([k, el]) => { el.hidden = k !== p; });
-    };
+    btn.onclick = () => jumpToPage(btn.dataset.page);
   });
 
   // Instrument picker — re-renders the Triads and Scales pages on change.
