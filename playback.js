@@ -194,6 +194,12 @@ function playbackPause() {
 
 function playbackStop() {
   clearSchedule();
+  // Dispose synths to cancel all future-scheduled notes on the
+  // AudioContext timeline. triggerAttackRelease with a future time
+  // can't be cancelled any other way. New synths are created on
+  // next play via ensureSynths().
+  if (synth) { synth.dispose(); synth = null; }
+  if (clickSynth) { clickSynth.dispose(); clickSynth = null; }
   if (onStepChange) onStepChange(-1);
 }
 
