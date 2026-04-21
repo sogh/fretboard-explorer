@@ -105,8 +105,8 @@ function validateStep(step) {
     if (!VALID_ARTICULATIONS.has(step.articulation)) {
       errors.push(`chord: invalid articulation: ${step.articulation}`);
     }
-    if (!step.voicing || !Array.isArray(step.voicing.positions)) {
-      errors.push("chord: voicing.positions must be an array");
+    if (!step.voicing || (!Array.isArray(step.voicing.positions) && !Array.isArray(step.voicing.notes))) {
+      errors.push("chord: voicing must have positions or notes array");
     }
   }
 
@@ -126,8 +126,9 @@ function validateStep(step) {
     if (!Array.isArray(step.notes)) errors.push("pattern: notes must be an array");
     for (let i = 0; i < (step.notes || []).length; i++) {
       const n = step.notes[i];
-      if (typeof n.string !== "number") errors.push(`pattern: notes[${i}] missing string`);
-      if (typeof n.fret !== "number") errors.push(`pattern: notes[${i}] missing fret`);
+      if (typeof n.midi !== "number" && (typeof n.string !== "number" || typeof n.fret !== "number")) {
+        errors.push(`pattern: notes[${i}] must have midi or string+fret`);
+      }
       if (typeof n.durationBeats !== "number") errors.push(`pattern: notes[${i}] missing durationBeats`);
       if (n.articulation != null && !VALID_NOTE_ARTICULATIONS.has(n.articulation)) {
         errors.push(`pattern: notes[${i}] invalid articulation: ${n.articulation}`);

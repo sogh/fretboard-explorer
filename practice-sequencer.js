@@ -709,8 +709,69 @@ function renderChordEditor(step, index) {
     { key: "arpeggiate_down", label: "Arp &#8595;" },
   ];
 
+  // Chord suggestions
+  const { key: detectedKey, secondKey, suggestions } = suggestNextChords(seqState.sequence.steps, index);
+
+  // Key info panel
+  let keyInfoHtml = "";
+  if (detectedKey && detectedKey.pct > 0) {
+    const pctLabel = Math.round(detectedKey.pct * 100);
+    const romanLabel = romanInKey(noteIndex(step.root), step.quality, detectedKey.rootPc);
+    keyInfoHtml = `<div class="seq-key-info">
+      <div class="seq-key-label">Detected tonality</div>
+      <div><span class="seq-key-name">${detectedKey.rootName} major</span><span class="seq-key-confidence">${pctLabel}% of chords fit</span></div>
+      ${romanLabel ? `<div class="seq-key-secondary">Current chord: <strong>${step.root} ${step.quality}</strong> = <strong>${romanLabel}</strong> in ${detectedKey.rootName}</div>` : `<div class="seq-key-secondary">Current chord <strong>${step.root} ${step.quality}</strong> is outside ${detectedKey.rootName} major (chromatic / borrowed)</div>`}
+      ${secondKey && secondKey.score === detectedKey.score ? `<div class="seq-key-secondary">Also possible: <strong>${secondKey.rootName} major</strong></div>` : ""}
+    </div>`;
+  }
+
+  // Group suggestions by category
+  const catOrder = ["diatonic", "resolution", "relative", "secondary", "borrowed", "chromatic"];
+  const catLabels = {
+    diatonic: "Diatonic", resolution: "Common resolutions", relative: "Relative key",
+    secondary: "Secondary dominants", borrowed: "Borrowed chords", chromatic: "Chromatic motion",
+  };
+  const catColors = {
+    diatonic: "var(--accent)", resolution: "#50c88c", relative: "#5ac8c8",
+    secondary: "var(--pattern-note)", borrowed: "#c57aff", chromatic: "var(--text-dim)",
+  };
+  const grouped = {};
+  for (const s of suggestions) {
+    if (!grouped[s.category]) grouped[s.category] = [];
+    grouped[s.category].push(s);
+  }
+
+  let suggestHtml = "";
+  if (suggestions.length > 0) {
+    suggestHtml += `<div class="seq-suggest-legend">`;
+    for (const cat of catOrder) {
+      if (!grouped[cat]) continue;
+      suggestHtml += `<span class="seq-suggest-legend-item"><span class="seq-suggest-legend-dot" style="background:${catColors[cat]}"></span> ${catLabels[cat]}</span>`;
+    }
+    suggestHtml += `</div>`;
+
+    for (const cat of catOrder) {
+      if (!grouped[cat]) continue;
+      suggestHtml += `<div class="seq-suggest-section">
+        <div class="seq-suggest-label">${catLabels[cat]}</div>
+        <div class="seq-suggest-grid">
+          ${grouped[cat].map(s => {
+            const isActive = s.root === step.root && s.quality === step.quality;
+            return `<button class="seq-suggest-btn ${isActive ? "active" : ""}" data-sug-cat="${s.category}" data-sug-root="${s.root}" data-sug-quality="${s.quality}" title="${escAttr(s.reason + (s.tonalityEffect ? ' — ' + s.tonalityEffect : ''))}">
+              <span class="seq-suggest-chord">${s.root} ${s.quality}</span>
+              ${s.roman ? `<span class="seq-suggest-roman">${s.roman}</span>` : ""}
+              ${s.tonalityEffect ? `<span class="seq-suggest-effect">${s.tonalityEffect}</span>` : ""}
+            </button>`;
+          }).join("")}
+        </div>
+      </div>`;
+    }
+  }
+
   return `<div class="seq-editor-panel">
     <div class="seq-editor-title">Edit chord step</div>
+    ${keyInfoHtml}
+    ${suggestHtml}
     <div class="seq-editor-row">
       <div class="control-group">
         <span class="control-label">Root</span>
@@ -897,6 +958,8 @@ function renderLeadLineEditor(step, index) {
 
   // Manual override: root + scale type
   const heptatonic = ["ionian", "dorian", "phrygian", "lydian", "mixolydian", "aeolian", "locrian"];
+  const pentatonic = ["majorPent", "minorPent", "blues"];
+  const allLLScaleKeys = [...heptatonic, ...pentatonic];
 
   // Bracket info
   const prevLabel = prev ? `${prev.root} ${prev.quality}` : "none";
@@ -934,7 +997,7 @@ function renderLeadLineEditor(step, index) {
       <div class="control-group">
         <span class="control-label">Scale type</span>
         <div class="control-options">
-          ${heptatonic.map(k => `<button class="control-btn ${currentScale && currentScale.type === k ? "active" : ""}" data-seq-ll-type="${k}">${SCALES[k].name}</button>`).join("")}
+          ${allLLScaleKeys.map(k => `<button class="control-btn ${currentScale && currentScale.type === k ? "active" : ""}" data-seq-ll-type="${k}">${SCALES[k].name}</button>`).join("")}
         </div>
       </div>
     </div>
@@ -1150,6 +1213,21 @@ function attachSequencerEvents() {
       if (key === "durationBeats") step.durationBeats = parseInt(val);
       else step[key] = val;
       if (key === "root" || key === "quality") step.voicing = voicingForChordStep(step);
+      saveSequence();
+      renderSequencerPage();
+    };
+  });
+
+  // Chord suggestion buttons
+  document.querySelectorAll("[data-sug-root]").forEach(btn => {
+    btn.onclick = () => {
+      const idx = seqState.editingStepIndex;
+      if (idx < 0) return;
+      const step = seqState.sequence.steps[idx];
+      if (step.kind !== "chord") return;
+      step.root = btn.dataset.sugRoot;
+      step.quality = btn.dataset.sugQuality;
+      step.voicing = voicingForChordStep(step);
       saveSequence();
       renderSequencerPage();
     };

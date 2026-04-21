@@ -118,6 +118,178 @@ body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono',
 .borrow-desc { font-size: 10px; color: var(--text-muted); margin-top: 3px; letter-spacing: 0.3px; }
 
 svg { width: 100%; height: auto; display: block; }
+
+/* ── Sequencer styles ─────────────────────────────────────────────── */
+.seq-timeline {
+  display: flex; gap: 10px; overflow-x: auto; padding: 8px 0 16px; margin-bottom: 12px;
+}
+.seq-step-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 8px; min-width: 180px; max-width: 280px; cursor: grab; transition: all 0.15s; position: relative; flex-shrink: 0;
+}
+.seq-step-card:hover { border-color: var(--text-dim); background: var(--surface-hover); }
+.seq-step-card.seq-step-editing { border-color: var(--accent); background: var(--selected-bg); }
+.seq-step-card.seq-dragging { opacity: 0.4; }
+.seq-step-card.seq-drag-over { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+.seq-step-head {
+  display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+}
+.seq-step-kind { font-size: 11px; font-weight: 600; color: var(--text); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seq-step-beats { font-size: 9px; color: var(--text-muted); }
+.seq-step-delete {
+  background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 14px; padding: 0 2px;
+  opacity: 0; transition: opacity 0.15s;
+}
+.seq-step-card:hover .seq-step-delete { opacity: 1; }
+.seq-step-delete:hover { color: #e55; }
+.seq-step-body { min-height: 40px; }
+.seq-step-empty { font-size: 10px; color: var(--text-muted); text-align: center; padding: 12px 0; }
+.seq-step-rest-icon { font-size: 28px; text-align: center; color: var(--text-dim); padding: 8px 0; }
+
+.seq-add-card {
+  background: var(--surface); border: 2px dashed var(--border); border-radius: 6px;
+  min-width: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.15s; padding: 16px; flex-shrink: 0;
+}
+.seq-add-card:hover { border-color: var(--accent); background: var(--accent-glow); }
+.seq-add-icon { font-size: 24px; color: var(--text-dim); line-height: 1; }
+.seq-add-card:hover .seq-add-icon { color: var(--accent); }
+.seq-add-label { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+.seq-name-input, .seq-tempo-input {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text); font-family: inherit; font-size: 12px; padding: 4px 8px;
+}
+.seq-name-input { width: 220px; }
+.seq-tempo-input { width: 60px; text-align: center; }
+.seq-name-input:focus, .seq-tempo-input:focus { outline: none; border-color: var(--accent); }
+.print-btn {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text-muted); font-family: inherit; font-size: 10px; padding: 5px 10px;
+  cursor: pointer; transition: all 0.15s;
+}
+.print-btn:hover { color: var(--text); border-color: var(--text-dim); }
+
+.seq-picker-modal {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100;
+}
+.seq-picker-modal.open { display: flex; align-items: flex-start; justify-content: center; }
+.seq-picker-panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 24px; margin-top: 80px; min-width: 340px; text-align: center;
+}
+.seq-picker-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1.5px; }
+.seq-picker-options { display: flex; gap: 10px; justify-content: center; margin-bottom: 16px; }
+.seq-picker-btn {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 16px 20px; cursor: pointer; transition: all 0.15s; text-align: center; color: var(--text);
+  font-family: inherit;
+}
+.seq-picker-btn:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-glow); }
+.seq-picker-icon { font-size: 22px; margin-bottom: 4px; }
+.seq-picker-label { font-size: 10px; color: var(--text); text-transform: uppercase; letter-spacing: 1px; }
+.seq-picker-close { background: none; border: 1px solid var(--border); border-radius: 4px; color: var(--text-muted); padding: 6px 16px; cursor: pointer; font-family: inherit; font-size: 11px; }
+.seq-picker-close:hover { border-color: var(--text-dim); color: var(--text); }
+
+.seq-editor-panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 16px; margin-bottom: 20px; max-width: 700px;
+}
+.seq-editor-title { font-size: 12px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; }
+.seq-editor-row { margin-bottom: 8px; }
+
+.seq-ll-editor { max-width: 900px; }
+.seq-ll-bracket-info { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.seq-ll-suggestions { margin-bottom: 12px; }
+.seq-ll-suggest-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.seq-ll-suggest-btn {
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+  cursor: pointer; transition: all 0.15s; font-family: inherit; text-align: left; color: var(--text);
+}
+.seq-ll-suggest-btn:hover { border-color: var(--accent); background: var(--accent-glow); }
+.seq-ll-suggest-btn.active { border-color: var(--accent); background: var(--selected-bg); }
+.seq-ll-suggest-name { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; }
+.seq-ll-suggest-reason { font-size: 10px; color: var(--text-muted); }
+.seq-ll-suggest-badge {
+  font-size: 8px; padding: 1px 5px; background: var(--accent-glow); border: 1px solid var(--accent);
+  border-radius: 3px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;
+}
+
+.seq-pat-editor { max-width: 900px; }
+.seq-pat-fretboard { cursor: crosshair; }
+.seq-pat-fretboard svg { cursor: crosshair; }
+.seq-pat-note-list { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; max-height: 240px; overflow-y: auto; }
+.seq-pat-note {
+  display: flex; align-items: center; gap: 8px; padding: 4px 8px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+  font-size: 11px;
+}
+.seq-pat-note-num { color: var(--text-muted); font-size: 9px; min-width: 18px; }
+.seq-pat-note-info { flex: 1; font-weight: 600; }
+.seq-pat-note-degree { color: var(--pattern-note); margin-left: 4px; font-weight: 400; }
+.seq-pat-note select {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 3px;
+  color: var(--text); font-family: inherit; font-size: 10px; padding: 2px 4px;
+}
+.seq-pat-note-del {
+  background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 14px; padding: 0 2px;
+}
+.seq-pat-note-del:hover { color: #e55; }
+.seq-pat-note-move {
+  background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 10px; padding: 0 2px;
+}
+.seq-pat-note-move:hover { color: var(--accent); }
+
+.seq-playback { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.seq-play-btn {
+  padding: 6px 14px; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--surface); color: var(--text); font-family: inherit; font-size: 11px;
+  cursor: pointer; transition: all 0.15s; font-weight: 600;
+}
+.seq-play-btn:hover { border-color: var(--accent); background: var(--accent-glow); }
+.seq-play-btn.seq-playing { border-color: var(--accent); color: var(--accent); }
+.seq-tempo-slider { width: 120px; accent-color: var(--accent); }
+.seq-loop-btn {
+  padding: 4px 10px; border: 1px solid var(--border); border-radius: 4px;
+  background: transparent; color: var(--text-muted); font-family: inherit; font-size: 10px;
+  cursor: pointer; transition: all 0.15s;
+}
+.seq-loop-btn:hover { border-color: var(--accent); }
+.seq-loop-btn.active { color: var(--accent); border-color: var(--accent); background: var(--accent-glow); }
+.seq-step-card.seq-step-playing { border-color: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+.seq-tempo-display { font-size: 11px; color: var(--text-muted); min-width: 55px; }
+
+/* Chord suggestion styles */
+.seq-key-info { margin-bottom: 12px; padding: 8px 10px; background: var(--tag-bg); border: 1px solid var(--tag-border); border-radius: 6px; }
+.seq-key-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 4px; }
+.seq-key-name { font-size: 14px; font-weight: 600; color: var(--accent); }
+.seq-key-confidence { font-size: 9px; color: var(--text-dim); margin-left: 6px; }
+.seq-key-secondary { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+.seq-suggest-section { margin-bottom: 12px; }
+.seq-suggest-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); font-weight: 500; margin-bottom: 6px; }
+.seq-suggest-grid { display: flex; gap: 4px; flex-wrap: wrap; }
+.seq-suggest-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 6px 10px; min-width: 56px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+  cursor: pointer; transition: all 0.15s; font-family: inherit; color: var(--text);
+}
+.seq-suggest-btn:hover { border-color: var(--accent); background: var(--accent-glow); }
+.seq-suggest-btn.active { border-color: var(--accent); background: var(--selected-bg); }
+.seq-suggest-chord { font-size: 12px; font-weight: 600; white-space: nowrap; }
+.seq-suggest-roman { font-size: 8px; color: var(--text-muted); letter-spacing: 0.5px; }
+.seq-suggest-effect { font-size: 7px; color: var(--text-dim); max-width: 80px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seq-suggest-btn[data-sug-cat="diatonic"] { border-left: 2px solid var(--accent); }
+.seq-suggest-btn[data-sug-cat="resolution"] { border-left: 2px solid #50c88c; }
+.seq-suggest-btn[data-sug-cat="secondary"] { border-left: 2px solid var(--pattern-note); }
+.seq-suggest-btn[data-sug-cat="borrowed"] { border-left: 2px solid #c57aff; }
+.seq-suggest-btn[data-sug-cat="relative"] { border-left: 2px solid #5ac8c8; }
+.seq-suggest-btn[data-sug-cat="chromatic"] { border-left: 2px solid var(--text-dim); }
+.seq-suggest-legend { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.seq-suggest-legend-item { display: flex; align-items: center; gap: 4px; font-size: 8px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.seq-suggest-legend-dot { width: 8px; height: 3px; border-radius: 1px; }
 </style>
 </head>
 <body>
@@ -126,6 +298,7 @@ svg { width: 100%; height: auto; display: block; }
   <button class="nav-btn active" data-page="scales">Scales &amp; Modes</button>
   <button class="nav-btn" data-page="voicings">Voicings</button>
   <button class="nav-btn" data-page="circle">Circle of Fifths</button>
+  <button class="nav-btn" data-page="sequencer">Sequencer</button>
   <a class="nav-btn switch" href="index.html" style="text-decoration:none">→ Guitar</a>
   <a class="nav-btn switch" href="trumpet.html" style="text-decoration:none">→ Trumpet</a>
 </nav>
@@ -155,21 +328,60 @@ svg { width: 100%; height: auto; display: block; }
   <div id="borrowed-sections"></div>
 </div>
 
+<div id="page-sequencer" class="page" hidden>
+  <div id="seq-controls" class="controls"></div>
+  <div id="seq-playback"></div>
+  <div id="seq-timeline" class="seq-timeline"></div>
+  <div id="seq-editor"></div>
+
+  <div id="seq-picker-modal" class="seq-picker-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="seq-picker-panel">
+      <div class="seq-picker-title">Add step</div>
+      <div class="seq-picker-options">
+        <button class="seq-picker-btn" data-seq-pick="chord">
+          <div class="seq-picker-icon">&#127925;</div>
+          <div class="seq-picker-label">Chord</div>
+        </button>
+        <button class="seq-picker-btn" data-seq-pick="lead_line">
+          <div class="seq-picker-icon">&#127929;</div>
+          <div class="seq-picker-label">Lead Line</div>
+        </button>
+        <button class="seq-picker-btn" data-seq-pick="pattern">
+          <div class="seq-picker-icon">&#127932;</div>
+          <div class="seq-picker-label">Pattern</div>
+        </button>
+        <button class="seq-picker-btn" data-seq-pick="rest">
+          <div class="seq-picker-icon">&#119102;</div>
+          <div class="seq-picker-label">Rest</div>
+        </button>
+      </div>
+      <button class="seq-picker-close" id="seq-picker-close" type="button">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script src="theory.js"></script>
 <script src="keyboard.js"></script>
 <script src="piano-scales.js"></script>
 <script src="piano-voicings.js"></script>
 <script src="piano-circle.js"></script>
+<script src="sequence-model.js"></script>
+<script src="playback.js"></script>
+<script src="piano-pattern-generators.js"></script>
+<script src="piano-sequencer.js"></script>
 <script>
 (function(){
-  const pageIds = ["scales", "voicings", "circle"];
+  const pageIds = ["scales", "voicings", "circle", "sequencer"];
   const pages = Object.fromEntries(pageIds.map(id => [id, document.getElementById(`page-${id}`)]));
+  window.jumpToPianoPage = function(id) {
+    document.querySelectorAll("#page-nav .nav-btn").forEach(b => b.classList.toggle("active", b.dataset.page === id));
+    Object.entries(pages).forEach(([k, el]) => { el.hidden = k !== id; });
+  };
   document.querySelectorAll("#page-nav .nav-btn").forEach(btn => {
     btn.onclick = () => {
       const p = btn.dataset.page;
       if (!p) return;
-      document.querySelectorAll("#page-nav .nav-btn").forEach(b => b.classList.toggle("active", b.dataset.page === p));
-      Object.entries(pages).forEach(([k, el]) => { el.hidden = k !== p; });
+      jumpToPianoPage(p);
     };
   });
 })();

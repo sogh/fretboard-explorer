@@ -204,8 +204,251 @@ function suggestScalesForBracket(prevChord, nextChord) {
   return suggestions;
 }
 
+// ── Key detection & chord suggestions ──────────────────���─────────
+// Diatonic chord templates for major keys (intervals from tonic, quality, roman numeral).
+const DIATONIC_TRIADS = [
+  { interval: 0,  quality: "major", roman: "I" },
+  { interval: 2,  quality: "minor", roman: "ii" },
+  { interval: 4,  quality: "minor", roman: "iii" },
+  { interval: 5,  quality: "major", roman: "IV" },
+  { interval: 7,  quality: "major", roman: "V" },
+  { interval: 9,  quality: "minor", roman: "vi" },
+  { interval: 11, quality: "dim",   roman: "vii\u00B0" },
+];
+const DIATONIC_SEVENTHS = [
+  { interval: 0,  quality: "maj7",  roman: "Imaj7" },
+  { interval: 2,  quality: "min7",  roman: "ii7" },
+  { interval: 4,  quality: "min7",  roman: "iii7" },
+  { interval: 5,  quality: "maj7",  roman: "IVmaj7" },
+  { interval: 7,  quality: "dom7",  roman: "V7" },
+  { interval: 9,  quality: "min7",  roman: "vi7" },
+  { interval: 11, quality: "m7b5",  roman: "vii\u00F87" },
+];
+
+// Score how well a set of chords fits each possible major key.
+// Returns sorted array of { rootPc, score, matched, total } (best first).
+function detectKey(chordSteps) {
+  if (!chordSteps || !chordSteps.length) return [];
+
+  const results = [];
+  for (let rootPc = 0; rootPc < 12; rootPc++) {
+    const majorPcs = SCALES.ionian.steps.map(s => (rootPc + s) % 12);
+    const majorSet = new Set(majorPcs);
+    // Build set of diatonic chord root+quality pairs for this key
+    const diatonicSet = new Set();
+    for (const d of DIATONIC_TRIADS) {
+      diatonicSet.add(`${(rootPc + d.interval) % 12}-${d.quality}`);
+    }
+    for (const d of DIATONIC_SEVENTHS) {
+      diatonicSet.add(`${(rootPc + d.interval) % 12}-${d.quality}`);
+    }
+    // Also match dom7 as "major" functional equivalent, min7 as "minor"
+    for (const d of DIATONIC_TRIADS) {
+      if (d.quality === "major") diatonicSet.add(`${(rootPc + d.interval) % 12}-dom7`);
+      if (d.quality === "minor") diatonicSet.add(`${(rootPc + d.interval) % 12}-min7`);
+    }
+
+    let matched = 0;
+    for (const step of chordSteps) {
+      const stepRootPc = noteIndex(step.root);
+      const tag = `${stepRootPc}-${step.quality}`;
+      if (diatonicSet.has(tag)) matched++;
+    }
+
+    results.push({
+      rootPc,
+      rootName: noteName(rootPc),
+      score: matched,
+      total: chordSteps.length,
+      pct: chordSteps.length > 0 ? matched / chordSteps.length : 0,
+    });
+  }
+
+  results.sort((a, b) => b.score - a.score || a.rootPc - b.rootPc);
+  return results;
+}
+
+// Get the roman numeral label for a chord in a given key.
+function romanInKey(chordRootPc, quality, keyRootPc) {
+  const interval = ((chordRootPc - keyRootPc) + 12) % 12;
+  // Try exact match first
+  const allTemplates = [...DIATONIC_TRIADS, ...DIATONIC_SEVENTHS];
+  for (const t of allTemplates) {
+    if (t.interval === interval && t.quality === quality) return t.roman;
+  }
+  // Fuzzy: dom7 on a major degree, min7 on a minor degree
+  for (const t of DIATONIC_TRIADS) {
+    if (t.interval === interval) {
+      if (t.quality === "major" && quality === "dom7") return t.roman.replace(/I+|V+/g, m => m) + "7";
+      if (t.quality === "minor" && quality === "min7") return t.roman + "7";
+    }
+  }
+  return null;
+}
+
+// Suggest next chords given the sequence context.
+// Returns { key, suggestions[] } where each suggestion has
+// { root, quality, roman, reason, category, tonalityEffect }.
+function suggestNextChords(steps, currentIndex) {
+  const chordSteps = steps.filter(s => s.kind === "chord");
+  const prevChords = steps.slice(0, currentIndex).filter(s => s.kind === "chord");
+  const currentStep = steps[currentIndex];
+  const prevChord = prevChords.length > 0 ? prevChords[prevChords.length - 1] : null;
+
+  // Detect key from all chord steps (excluding rest/lead_line/pattern)
+  const keyResults = detectKey(chordSteps);
+  const bestKey = keyResults.length > 0 && keyResults[0].score > 0 ? keyResults[0] : null;
+  const secondKey = keyResults.length > 1 && keyResults[1].score > 0 && keyResults[1].score === keyResults[0].score ? keyResults[1] : null;
+
+  const suggestions = [];
+  const seen = new Set();
+
+  function addSuggestion(root, quality, romanOverride, reason, category) {
+    const tag = `${root}-${quality}`;
+    if (seen.has(tag)) return;
+    seen.add(tag);
+
+    // Compute roman numeral from detected key (authoritative).
+    // Only fall back to the caller's override for non-diatonic labels
+    // like "V7/ii" or "♭III" that romanInKey can't produce.
+    let roman = "";
+    let tonalityEffect = "";
+    if (bestKey) {
+      const cPc = noteIndex(root);
+      const keyRoman = romanInKey(cPc, quality, bestKey.rootPc);
+      if (keyRoman) {
+        roman = keyRoman;
+        tonalityEffect = `diatonic in ${bestKey.rootName} major`;
+      } else {
+        // Not diatonic — only keep caller labels for categories that define
+        // their own naming (secondary dominants "V7/X", borrowed "♭III" etc).
+        // For resolution/chromatic/relative, blank is clearer than a
+        // misleading numeral from a different tonal context.
+        roman = (category === "secondary" || category === "borrowed") ? (romanOverride || "") : "";
+        const altKeys = detectKey([...chordSteps, { root, quality }]);
+        if (altKeys[0] && altKeys[0].rootPc !== bestKey.rootPc && altKeys[0].score > bestKey.score) {
+          tonalityEffect = `shifts key toward ${altKeys[0].rootName} major`;
+        } else {
+          tonalityEffect = `chromatic / borrowed`;
+        }
+      }
+    } else {
+      roman = romanOverride || "";
+    }
+
+    suggestions.push({ root, quality, roman, reason, category, tonalityEffect });
+  }
+
+  // 1. Diatonic chords in detected key
+  if (bestKey && bestKey.pct >= 0.5) {
+    const keyRoot = bestKey.rootPc;
+    for (const d of DIATONIC_TRIADS) {
+      const r = noteName((keyRoot + d.interval) % 12);
+      const isCurrent = currentStep && currentStep.root === r && currentStep.quality === d.quality;
+      if (!isCurrent) {
+        addSuggestion(r, d.quality, d.roman, `diatonic in ${bestKey.rootName} major`, "diatonic");
+      }
+    }
+    // Also 7th chord versions
+    for (const d of DIATONIC_SEVENTHS) {
+      const r = noteName((keyRoot + d.interval) % 12);
+      addSuggestion(r, d.quality, d.roman, `diatonic in ${bestKey.rootName} major`, "diatonic");
+    }
+  }
+
+  // 2. Common moves from previous chord
+  if (prevChord) {
+    const pRootPc = noteIndex(prevChord.root);
+    const pQual = prevChord.quality;
+
+    // V -> I resolution
+    if (pQual === "major" || pQual === "dom7") {
+      const tonicPc = (pRootPc + 5) % 12; // up a P4 = down a P5
+      addSuggestion(noteName(tonicPc), "major", "I", `resolves V\u2192I from ${prevChord.root}`, "resolution");
+      addSuggestion(noteName(tonicPc), "minor", "i", `resolves V\u2192i from ${prevChord.root}`, "resolution");
+    }
+
+    // ii -> V
+    if (pQual === "minor" || pQual === "min7") {
+      const vPc = (pRootPc + 7) % 12;
+      addSuggestion(noteName(vPc), "dom7", "V7", `ii\u2192V7 from ${prevChord.root}m`, "resolution");
+      addSuggestion(noteName(vPc), "major", "V", `ii\u2192V from ${prevChord.root}m`, "resolution");
+    }
+
+    // IV -> V or IV -> I
+    if (pQual === "major" || pQual === "maj7") {
+      const vPc = (pRootPc + 2) % 12; // up a whole step
+      addSuggestion(noteName(vPc), "major", "V", `IV\u2192V motion from ${prevChord.root}`, "resolution");
+      addSuggestion(noteName(vPc), "dom7", "V7", `IV\u2192V7 motion from ${prevChord.root}`, "resolution");
+    }
+
+    // Relative major/minor
+    if (pQual === "major" || pQual === "maj7" || pQual === "dom7") {
+      const relMinPc = (pRootPc + 9) % 12;
+      addSuggestion(noteName(relMinPc), "minor", "vi", `relative minor of ${prevChord.root}`, "relative");
+    }
+    if (pQual === "minor" || pQual === "min7") {
+      const relMajPc = (pRootPc + 3) % 12;
+      addSuggestion(noteName(relMajPc), "major", "III", `relative major of ${prevChord.root}m`, "relative");
+    }
+  }
+
+  // 3. Borrowed chords from parallel minor (key-dependent, before chromatic so they win dedup)
+  if (bestKey && bestKey.pct >= 0.5) {
+    const keyRoot = bestKey.rootPc;
+    const borrowed = [
+      { interval: 3,  quality: "major", roman: "\u266DIII", desc: "borrowed from parallel minor" },
+      { interval: 8,  quality: "major", roman: "\u266DVI",  desc: "borrowed from parallel minor" },
+      { interval: 10, quality: "major", roman: "\u266DVII", desc: "borrowed from parallel minor" },
+      { interval: 5,  quality: "minor", roman: "iv",        desc: "borrowed minor iv" },
+    ];
+    for (const b of borrowed) {
+      const r = noteName((keyRoot + b.interval) % 12);
+      addSuggestion(r, b.quality, b.roman, b.desc, "borrowed");
+    }
+  }
+
+  // 4. Secondary dominants: V7/X for each diatonic chord (key-dependent)
+  if (bestKey && bestKey.pct >= 0.5) {
+    for (const d of DIATONIC_TRIADS) {
+      if (d.quality === "dim") continue;
+      const targetPc = (bestKey.rootPc + d.interval) % 12;
+      const secDomPc = (targetPc + 7) % 12;
+      const targetName = noteName(targetPc);
+      addSuggestion(noteName(secDomPc), "dom7", `V7/${d.roman}`,
+        `secondary dominant resolving to ${targetName}`, "secondary");
+    }
+  }
+
+  // 5. Chromatic motion from previous chord (last priority — borrowed/secondary win dedup)
+  if (prevChord) {
+    const pRootPc = noteIndex(prevChord.root);
+    for (const delta of [1, 2, -1, -2]) {
+      const target = noteName((pRootPc + delta + 12) % 12);
+      const dir = delta > 0 ? "up" : "down";
+      const dist = Math.abs(delta) === 1 ? "half step" : "whole step";
+      addSuggestion(target, "major", "", `${dir} ${dist} from ${prevChord.root}`, "chromatic");
+      addSuggestion(target, "minor", "", `${dir} ${dist} from ${prevChord.root}`, "chromatic");
+    }
+  }
+
+  // If no previous chord and no key detected, suggest common starting chords
+  if (!prevChord && suggestions.length === 0) {
+    for (const root of ["C", "G", "D", "A", "F"]) {
+      addSuggestion(root, "major", "", "common starting key", "diatonic");
+      addSuggestion(root, "minor", "", "common starting key", "diatonic");
+    }
+  }
+
+  return {
+    key: bestKey,
+    secondKey,
+    suggestions: suggestions.slice(0, 30),
+  };
+}
+
 // Node-only export hook so the test suite can pull in these helpers.
 // Browsers ignore this because `module` is undefined at global scope.
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { NOTES, SCALES, CHORD_INTERVALS, noteIndex, noteName, spellScale, spellNote, chordPcs, suggestScalesForBracket };
+  module.exports = { NOTES, SCALES, CHORD_INTERVALS, noteIndex, noteName, spellScale, spellNote, chordPcs, suggestScalesForBracket, detectKey, romanInKey, suggestNextChords, DIATONIC_TRIADS, DIATONIC_SEVENTHS };
 }

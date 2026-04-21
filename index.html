@@ -269,6 +269,37 @@ svg { width: 100%; height: auto; display: block; }
 .seq-step-card.seq-step-playing { border-color: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
 .seq-tempo-display { font-size: 11px; color: var(--text-muted); min-width: 55px; }
 
+/* Chord suggestion styles */
+.seq-key-info { margin-bottom: 12px; padding: 8px 10px; background: var(--tag-bg); border: 1px solid var(--tag-border); border-radius: 6px; }
+.seq-key-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 4px; }
+.seq-key-name { font-size: 14px; font-weight: 600; color: var(--accent); }
+.seq-key-confidence { font-size: 9px; color: var(--text-dim); margin-left: 6px; }
+.seq-key-secondary { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+.seq-suggest-section { margin-bottom: 12px; }
+.seq-suggest-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); font-weight: 500; margin-bottom: 6px; }
+.seq-suggest-grid { display: flex; gap: 4px; flex-wrap: wrap; }
+.seq-suggest-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 6px 10px; min-width: 56px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+  cursor: pointer; transition: all 0.15s; font-family: inherit; color: var(--text);
+}
+.seq-suggest-btn:hover { border-color: var(--accent); background: var(--accent-glow); }
+.seq-suggest-btn.active { border-color: var(--accent); background: var(--selected-bg); }
+.seq-suggest-chord { font-size: 12px; font-weight: 600; white-space: nowrap; }
+.seq-suggest-roman { font-size: 8px; color: var(--text-muted); letter-spacing: 0.5px; }
+.seq-suggest-effect { font-size: 7px; color: var(--text-dim); max-width: 80px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seq-suggest-btn[data-sug-cat="diatonic"] { border-left: 2px solid var(--accent); }
+.seq-suggest-btn[data-sug-cat="resolution"] { border-left: 2px solid #50c88c; }
+.seq-suggest-btn[data-sug-cat="secondary"] { border-left: 2px solid var(--pattern-note); }
+.seq-suggest-btn[data-sug-cat="borrowed"] { border-left: 2px solid #c57aff; }
+.seq-suggest-btn[data-sug-cat="relative"] { border-left: 2px solid #5ac8c8; }
+.seq-suggest-btn[data-sug-cat="chromatic"] { border-left: 2px solid var(--text-dim); }
+.seq-suggest-legend { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.seq-suggest-legend-item { display: flex; align-items: center; gap: 4px; font-size: 8px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.seq-suggest-legend-dot { width: 8px; height: 3px; border-radius: 1px; }
+
 @media print {
   .page-nav { display: none; }
   .circle-wrap { border: 1px solid #ccc; }

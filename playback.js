@@ -9,6 +9,7 @@ let clickSynth = null;
 let scheduledEvents = [];
 let onStepChange = null;
 let playbackTimer = null;
+let pbLoop = false;
 
 const TONE_CDN = "https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js";
 
@@ -121,10 +122,14 @@ function pbLoadAndPlay(sequence, stepCallback, loop) {
 }
 
 function scheduleChordStep(step, startTime, bpm) {
+  // Piano voicings use {notes: [{midi, degree}]}, guitar uses {positions: [{string, fret}]}
+  const pianoNotes = step.voicing && step.voicing.notes;
   const positions = step.voicing && step.voicing.positions;
-  if (!positions || !positions.length) return;
+  if ((!pianoNotes || !pianoNotes.length) && (!positions || !positions.length)) return;
 
-  const freqs = positions.map(p => midiToFreq(fretToMidi(p.string, p.fret)));
+  const freqs = pianoNotes
+    ? pianoNotes.map(n => midiToFreq(n.midi))
+    : positions.map(p => midiToFreq(fretToMidi(p.string, p.fret)));
   const art = step.articulation || "strum_down";
   const durSec = beatsToSeconds(step.durationBeats * 0.7, bpm);
 
@@ -153,7 +158,9 @@ function schedulePatternStep(step, startTime, bpm) {
   if (!step.notes || !step.notes.length) return;
   let offset = 0;
   for (const note of step.notes) {
-    const freq = midiToFreq(fretToMidi(note.string, note.fret));
+    const freq = note.midi != null
+      ? midiToFreq(note.midi)
+      : midiToFreq(fretToMidi(note.string, note.fret));
     const dur = note.durationBeats || 1;
     const durSec = beatsToSeconds(dur * 0.8, bpm);
     synth.triggerAttackRelease(freq, durSec, startTime + beatsToSeconds(offset, bpm));
@@ -183,7 +190,7 @@ async function playbackPlay(sequence, stepCallback) {
   ensureSynths();
   await Tone.start(); // resume AudioContext on user gesture
   if (sequence) {
-    pbLoadAndPlay(sequence, stepCallback, seqState.playback.loop);
+    pbLoadAndPlay(sequence, stepCallback, pbLoop);
   }
 }
 
@@ -208,7 +215,7 @@ function playbackSetTempo(bpm) {
 }
 
 function playbackSetLoop(enabled) {
-  // Loop state is read by pbLoadAndPlay from seqState.playback.loop.
+  pbLoop = !!enabled;
 }
 
 function playbackIsPlaying() {
