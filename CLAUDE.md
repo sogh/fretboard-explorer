@@ -2,130 +2,140 @@
 
 ## Project Overview
 
-Fretboard Explorer is an interactive guitar fretboard visualization tool for exploring triads, 7th chords, diatonic chords, pentatonic scales, and modal scales. It is a zero-dependency, vanilla HTML/JavaScript single-page application with no build system.
+Music Theory Toolbox — a suite of interactive visualization tools for exploring chords, scales, voicings, progressions, and practice sequences across multiple instruments. Zero-dependency vanilla HTML/JavaScript with no build system.
+
+Three standalone HTML pages, each with tabbed sub-pages:
+
+- **index.html** (Guitar/Fretted instruments) — Fretboard Explorer, Circle of Fifths, Progressions, Scales & Modes, Sequencer
+- **piano.html** (Piano) — Scales & Modes, Voicings, Circle of Fifths, Sequencer
+- **trumpet.html** (Trumpet) — Scales with B♭ transposition and valve fingerings
 
 ## File Structure
 
 ```
 /
-├── index.html           # Entry point — HTML structure + embedded CSS (dark/light/print themes)
-├── triad-explorer.js    # All application logic — music theory, SVG rendering, UI state (~444 lines)
-└── LICENSE              # MIT License
+├── index.html                # Guitar page — HTML + embedded CSS (dark/print themes)
+├── piano.html                # Piano page — HTML + embedded CSS
+├── trumpet.html              # Trumpet page — HTML + embedded CSS
+│
+├── theory.js                 # Shared music theory: notes, scales, chord intervals,
+│                             #   enharmonic spelling, key detection, chord suggestions
+├── instruments.js            # Fretted instrument catalogue (guitar, bass, uke, banjo, mandolin)
+├── keyboard.js               # Piano keyboard SVG renderer (used by all piano pages)
+├── fingering.js              # Trumpet valve fingering chart + SVG renderer
+│
+├── triad-explorer.js         # Guitar: fretboard voicing explorer (triads/7ths)
+├── chord-explorer.js         # Guitar: modal showing all voicings for a clicked chord
+├── circle-of-fifths.js       # Guitar: circle of fifths visualization
+├── progressions.js           # Guitar: chord progression explorer by genre
+├── scales-modes.js           # Guitar: scale/mode positions (CAGED/3NPS)
+├── practice-sequencer.js     # Guitar: practice sequencer UI
+├── pattern-generators.js     # Guitar: fretboard-based pattern generators
+│
+├── piano-scales.js           # Piano: scales & modes page
+├── piano-voicings.js         # Piano: chord voicing builder (close/open/two-hand)
+├── piano-circle.js           # Piano: circle of fifths with keyboard strips
+├── piano-sequencer.js        # Piano: practice sequencer UI
+├── piano-pattern-generators.js # Piano: MIDI-based pattern generators
+│
+├── trumpet.js                # Trumpet: scales with transposition + fingerings
+│
+├── sequence-model.js         # Sequencer data model (shared, instrument-agnostic)
+├── playback.js               # Audio engine — Tone.js wrapper (shared, instrument-agnostic)
+│
+├── theory.test.js            # Tests for theory.js
+├── sequence-model.test.js    # Tests for sequence-model.js
+├── trumpet.test.js           # Tests for trumpet.js
+├── integration.test.js       # Integration tests (DOM simulation + SVG validation)
+│
+└── LICENSE                   # MIT License
 ```
-
-There are only two source files. All code lives at the repository root.
 
 ## Technology Stack
 
 - **Vanilla JavaScript** (ES6+) — no framework, no TypeScript, no transpilation
-- **Inline CSS** in `index.html` — CSS custom properties for theming, CSS Grid/Flexbox for layout
-- **SVG** — fretboard diagrams are generated as inline SVG strings
+- **Inline CSS** in each HTML file — CSS custom properties for theming
+- **SVG** — fretboard/keyboard diagrams generated as inline SVG strings
+- **Tone.js** — loaded from CDN at runtime for audio playback (lazy-loaded on first use)
 - **No build system** — no bundler, no package.json, no npm dependencies
-- **No tests** — no test framework or test files
-- **No CI/CD** — no GitHub Actions or other pipelines
+- **Tests** — lightweight Node.js test runner (`node <test>.js`), no test framework
 
 ## How to Run
 
-Open `index.html` directly in a browser. No server or build step required. For local development, any static file server works (e.g., `python3 -m http.server`).
+Open any HTML file directly in a browser. No server or build step required. For local development, any static file server works (e.g., `python3 -m http.server`).
+
+Run tests: `node theory.test.js`, `node sequence-model.test.js`, `node trumpet.test.js`, `node integration.test.js`
 
 ## Architecture
 
-### Code Organization (triad-explorer.js)
+### Shared Modules
 
-The file is organized into five clearly-commented sections:
+**theory.js** — The foundation. Contains:
+- `NOTES`, `CHORD_INTERVALS`, `SCALES` (16 scale types), `SCALE_GROUPS`
+- `noteIndex()`, `noteName()`, `spellScale()`, `spellNote()` — note/scale helpers
+- `chordPcs()`, `suggestScalesForBracket()` — chord/scale analysis
+- `detectKey()`, `romanInKey()`, `suggestNextChords()` — key detection and chord suggestion engine
 
-1. **Music theory constants** (lines 1-17) — `NOTES`, `STANDARD_TUNING`, `CHORD_INTERVALS` (triads + 7th chords), helper functions `noteIndex()` / `noteName()`
-2. **Chord logic** (lines 19-78) — `getTriadNotes()`, `getTriadDegreeLabels()`, `findVoicingOnStrings()` — compute chord voicings on N consecutive strings using cartesian product span minimization
-3. **Scale & pattern generation** (lines 80-181) — `chordNotes()`, pentatonic generators, `MODES` array, `generatePatterns()` — diatonic chords (triads or 7ths based on family), pentatonic scales, blues scale, harmonic/melodic minor, all 7 modes, secondary dominants, borrowed chords, tritone sub; each pattern has a `category` field ("diatonic", "scales", or "functional")
-4. **Fretboard rendering** (lines 183-296) — `computeFretRange()`, `renderFretboardSVG()` — SVG generation for fretboard diagrams
-5. **UI state & rendering** (lines 298-480) — `state` object, `FAMILY_OPTIONS`, `FAMILY_QUALITIES`, `PATTERN_TABS`, `render()`, `attachEvents()`, bootstrap call
+**instruments.js** — Fretted instrument definitions (tuning, fret count, string groups for triad/7th voicings). Selected instrument stored in `currentInstrumentKey` global.
+
+**keyboard.js** — `renderKeyboardSVG(opts)` — flexible piano keyboard renderer supporting scale highlights, chord notes, degree/note labels, active regions, compact mode.
+
+**playback.js** — Lazy-loads Tone.js from CDN. Supports both fretboard (`{string, fret}`) and piano (`{midi}`) note formats. Simple setTimeout-based scheduler with loop support.
+
+**sequence-model.js** — Step types: `chordStep`, `leadLineStep`, `patternStep`, `restStep`. Validation, serialization, versioning. Instrument-agnostic.
+
+### Page Architecture
+
+Each HTML page loads shared modules via `<script>` tags, then page-specific modules. Each page has its own nav bar switching between tabbed sub-pages. Pages link to each other via `<a>` tags in the nav.
 
 ### State Management
 
-A single global mutable `state` object drives the UI:
+Each page/module uses a global mutable state object (e.g., `state`, `pianoScaleState`, `pianoSeqState`). State changes are followed by calling the module's `render*()` function which rebuilds the full DOM for that section. No virtual DOM or diffing.
 
-```js
-const state = {
-  root: "G",              // Current root note
-  family: "triad",        // "triad" or "7th"
-  quality: "major",       // Quality within the active family
-  inversion: 1,           // 0-2 for triads, 0-3 for 7th chords
-  stringGroup: 2,         // 0-3 for triads (3 strings), 0-2 for 7ths (4 strings)
-  patternCategory: "all", // "all", "diatonic", "scales", or "functional"
-  selectedPattern: null   // Index into patterns array, or null
-};
-```
+### Rendering Pattern
 
-State is mutated directly (e.g., `state.root = val`) followed by calling `render()` to re-render the entire UI. There is no virtual DOM or diffing — the full DOM is rebuilt on each render. When switching families, quality/inversion/stringGroup reset to valid defaults.
+All renderers build HTML/SVG as string concatenation, set via `innerHTML`, then re-attach event listeners. Fretboard and keyboard SVGs are pure functions: `(options) → SVG string`.
 
-### Rendering Pipeline
+### Sequencer Architecture
 
-`render()` is the single entry point that rebuilds the entire page:
-1. Derives dynamic config from family (inversions, string groups, qualities)
-2. Computes voicing via `findVoicingOnStrings()`
-3. Generates related patterns via `generatePatterns()`
-4. Builds control button rows as HTML strings (Root, Type, Quality, Inversion, Strings)
-5. Renders the main fretboard SVG with optional pattern overlay
-6. Renders pattern category tabs (All / Diatonic / Scales)
-7. Renders pattern cards filtered by active category (each with its own compact fretboard SVG)
-8. Re-attaches all event listeners via `attachEvents()`
+The practice sequencer (guitar and piano versions) shares:
+- **Data model** (`sequence-model.js`) — step types, validation, JSON serialization
+- **Playback engine** (`playback.js`) — Tone.js wrapper, instrument-agnostic
+- **Persistence** — localStorage + URL hash for shareable links
 
-### SVG Fretboard Rendering
+Each instrument has its own sequencer UI:
+- `practice-sequencer.js` — fretboard-based rendering, guitar voicings, string/fret patterns
+- `piano-sequencer.js` — keyboard-based rendering, piano voicings (close/open/split), MIDI patterns
 
-`renderFretboardSVG()` builds SVG markup as a string. It renders:
-- Fret position dots (3, 5, 7, 9, 12, 15)
-- Fret lines and string lines with variable thickness
-- Fret numbers along the bottom
-- Chord notes (blue circles with degree labels: 1, 3, 5, 7, etc.)
-- Pattern notes (orange circles with note names)
-- Overlapping notes get side-by-side display (chord left, pattern right)
-
-The function accepts a `compact` flag for smaller pattern-card renderings.
-
-### DOM Structure (index.html)
-
-```
-#print-header    — visible only in print mode
-#controls        — button rows for root/type/quality/inversion/strings + print button
-#main-board      — main fretboard visualization
-#pattern-header  — category filter tabs (All / Diatonic / Scales)
-#patterns        — grid of pattern cards (diatonic chords, scales, modes)
-```
-
-### Theming
-
-CSS custom properties in `:root` control the dark theme. A `@media print` block overrides them for light/paper output. Key variable groups:
-- `--bg`, `--surface`, `--border` — layout colors
-- `--triad-fill`, `--triad-stroke`, `--triad-text` — chord note styling
-- `--pattern-note`, `--pattern-text` — pattern note styling
-- `--fret-color`, `--string-color`, `--dot-muted` — fretboard element colors
+Chord editor features: key detection across the sequence, chord suggestions grouped by category (diatonic, resolution, borrowed, secondary dominant, relative, chromatic), tonality effect indicators.
 
 ## Naming Conventions
 
-- **Functions**: camelCase — `getTriadNotes()`, `renderFretboardSVG()`, `findVoicingOnStrings()`
-- **Constants**: SCREAMING_SNAKE_CASE — `NOTES`, `STANDARD_TUNING`, `CHORD_INTERVALS`, `MODES`
-- **UI constants**: SCREAMING_SNAKE_CASE — `ROOTS`, `FAMILY_OPTIONS`, `FAMILY_QUALITIES`, `PATTERN_TABS`, `TRIAD_INVERSIONS`, `SEVENTH_INVERSIONS`, `TRIAD_STRING_GROUPS`, `SEVENTH_STRING_GROUPS`
-- **Loop variables**: Short abbreviations — `si` (string index), `fi` (fret index), `ri` (root index)
-- **Function prefixes**: `get*` (compute/return data), `find*` (search with possible null), `compute*` (calculate derived values), `render*` (produce HTML/SVG), `attach*` (wire up events)
+- **Functions**: camelCase — `renderFretboardSVG()`, `buildCloseVoicing()`, `detectKey()`
+- **Constants**: SCREAMING_SNAKE_CASE — `NOTES`, `CHORD_INTERVALS`, `SCALES`, `DIATONIC_TRIADS`
+- **State objects**: camelCase — `state`, `pianoSeqState`, `pianoVoicingState`
+- **Loop variables**: Short abbreviations — `si` (string index), `fi` (fret index), `pc` (pitch class)
+- **Function prefixes**: `get*` (compute data), `find*` (search, may return null), `compute*` (derived values), `render*` (produce HTML/SVG), `attach*` (wire up events), `build*` (construct complex objects), `detect*` (analysis)
 
 ## Music Theory Domain Model
 
 - **Notes**: Chromatic scale as array index 0-11: `["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]`
-- **Tuning**: Standard guitar tuning stored as note indices: `[4, 11, 7, 2, 9, 4]` (high E to low E)
-- **Triads**: 3-note chords — six qualities: major `[0,4,7]`, minor `[0,3,7]`, dim `[0,3,6]`, aug `[0,4,8]`, sus2 `[0,2,7]`, sus4 `[0,5,7]`
-- **7th chords**: 4-note chords — six qualities: maj7 `[0,4,7,11]`, dom7 `[0,4,7,10]`, min7 `[0,3,7,10]`, mM7 `[0,3,7,11]`, dim7 `[0,3,6,9]`, m7b5 `[0,3,6,10]`
-- **Degree labels**: Quality-specific — e.g. minor shows ♭3, dim shows ♭3/♭5, dom7 shows ♭7, dim7 shows °7
-- **Inversions**: Implemented as array rotation of the chord degree order (3 for triads, 4 for 7ths)
-- **String groups**: Triads use 4 groups of 3 consecutive strings; 7ths use 3 groups of 4 consecutive strings
-- **Voicing selection**: Cartesian product of all fret options across N strings, picks smallest span (max 5 frets)
-- **Patterns**: Diatonic chords (triads or 7th chords matching the active family), pentatonic scales, blues scale, harmonic/melodic minor (for minor qualities), all 7 modes, secondary dominants (V7/ii–V7/vi), borrowed chords (♭III, ♭VI, ♭VII for major qualities), and tritone sub (♭II7); each pattern tagged with a `category` ("diatonic", "scales", or "functional") for tab filtering
+- **Pitch classes (pc)**: Integer 0-11 representing a note regardless of octave
+- **MIDI numbers**: Integer pitch identifiers (60 = middle C). Used by piano voicings and playback
+- **Scales**: 16 types from pentatonic to chromatic, each with steps (semitone offsets), degrees, formula
+- **Chord intervals**: 12 qualities (6 triads + 6 seventh chords) as semitone arrays
+- **Voicings**: Guitar uses `{positions: [{string, fret, degree}]}`, piano uses `{notes: [{midi, degree}]}`
+- **Key detection**: Scores chord sequences against all 12 major keys by counting diatonic matches
+- **Enharmonic spelling**: `spellScale()` assigns proper accidentals so each letter name appears once
 
 ## Development Guidelines
 
 - Keep the project as vanilla JS with no build tools or dependencies — this is intentional simplicity
-- All logic stays in `triad-explorer.js`; all markup and styles stay in `index.html`
+- Each HTML page is self-contained with its own `<style>` block and `<script>` tags
+- Shared logic goes in theory.js; instrument-specific rendering stays in its own module
 - Maintain the section comment style: `// ── Section Name ──────...`
-- When adding features, follow the existing pattern of string-based HTML/SVG generation
-- CSS changes go in the `<style>` block in `index.html` using CSS custom properties for theme consistency
-- Test changes by opening `index.html` in a browser — there is no automated test suite
-- The print stylesheet (`@media print`) must be kept in sync with any visual changes
+- Follow the existing pattern of string-based HTML/SVG generation
+- CSS changes use CSS custom properties for theme consistency across dark/print modes
+- Test changes by opening the relevant HTML file in a browser
+- Run `node <test>.js` files to verify shared module changes
+- The print stylesheet (`@media print`) must be kept in sync with visual changes
